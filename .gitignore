@@ -7,8 +7,10 @@ checkpoints/*
 logs/*
 data/raw/*
 data/processed/*
+data/tokenized/*
 !checkpoints/.gitkeep
 !logs/.gitkeep
 !data/raw/.gitkeep
 !data/processed/.gitkeep
+!data/tokenized/.gitkeep
 .DS_Store
