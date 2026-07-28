@@ -1,6 +1,6 @@
 """Deterministic mixed-precision training utilities."""
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -41,6 +41,7 @@ class TrainingState:
     optimizer_step: int = 0
     tokens_seen: int = 0
     completed_epochs: int = 0
+    batches_in_epoch: int = 0
     best_validation_loss: float | None = None
 
     def to_dict(self) -> dict[str, object]:
@@ -311,16 +312,31 @@ class CyclingDataIterator:
         loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
         *,
         seed: int,
+        completed_epochs: int = 0,
+        batches_in_epoch: int = 0,
     ) -> None:
         if len(loader) == 0:
             raise ValueError("Training DataLoader must not be empty.")
         if seed < 0:
             raise ValueError("seed must be non-negative.")
+        if completed_epochs < 0:
+            raise ValueError("completed_epochs must be non-negative.")
+        if batches_in_epoch < 0 or batches_in_epoch >= len(loader):
+            raise ValueError(
+                "batches_in_epoch must identify a batch inside the epoch."
+            )
         self.loader = loader
         self.seed = seed
-        self.completed_epochs = 0
+        self.completed_epochs = completed_epochs
         self._batches_in_epoch = 0
         self._iterator = self._new_iterator()
+        for _ in range(batches_in_epoch):
+            next(self._iterator)
+            self._batches_in_epoch += 1
+
+    @property
+    def batches_in_epoch(self) -> int:
+        return self._batches_in_epoch
 
     def _new_iterator(self) -> Iterator[tuple[torch.Tensor, torch.Tensor]]:
         generator = getattr(self.loader, "generator", None)
@@ -433,6 +449,9 @@ def train_model(
     run_name: str = "training",
     run_id: str | None = None,
     logger: "JsonlRunLogger | None" = None,
+    on_optimizer_step: (
+        Callable[[TrainingState, TrainingMetrics], None] | None
+    ) = None,
     max_micro_steps: int | None = None,
     progress: bool = False,
 ) -> tuple[TrainingState, list[TrainingMetrics]]:
@@ -464,7 +483,12 @@ def train_model(
     )
     run_state = TrainingState() if state is None else state
     resolved_run_id = str(uuid.uuid4()) if run_id is None else run_id
-    cycling = CyclingDataIterator(train_loader, seed=seed)
+    cycling = CyclingDataIterator(
+        train_loader,
+        seed=seed,
+        completed_epochs=run_state.completed_epochs,
+        batches_in_epoch=run_state.batches_in_epoch,
+    )
     model.train()
     model.to(device)
     optimizer.zero_grad(set_to_none=True)
@@ -516,6 +540,7 @@ def train_model(
             attempted_micro_steps += 1
 
         run_state.completed_epochs = cycling.completed_epochs
+        run_state.batches_in_epoch = cycling.batches_in_epoch
         learning_rate = cosine_learning_rate(
             run_state.optimizer_step,
             warmup_steps=warmup_steps,
@@ -602,6 +627,8 @@ def train_model(
         metrics.append(record)
         if logger is not None:
             logger.write_metrics(record)
+        if on_optimizer_step is not None:
+            on_optimizer_step(run_state, record)
         if progress:
             validation_text = (
                 ""
@@ -630,20 +657,41 @@ class JsonlRunLogger:
         run_name: str,
         *,
         overwrite: bool = False,
+        resume: bool = False,
+        expected_run_id: str | None = None,
     ) -> None:
         if not run_name or Path(run_name).name != run_name:
             raise ValueError("run_name must be a non-empty path-safe name.")
         self.run_dir = Path(log_dir) / run_name
         self.metrics_path = self.run_dir / "train_metrics.jsonl"
         self.metadata_path = self.run_dir / "run_metadata.json"
-        if (
+        if overwrite and resume:
+            raise ValueError("overwrite and resume cannot both be enabled.")
+        if resume:
+            if not self.metrics_path.is_file() or not self.metadata_path.is_file():
+                raise FileNotFoundError(
+                    f"Cannot resume missing run logs in {self.run_dir}."
+                )
+            metadata = json.loads(
+                self.metadata_path.read_text(encoding="utf-8")
+            )
+            if not isinstance(metadata, dict) or (
+                expected_run_id is not None
+                and metadata.get("run_id") != expected_run_id
+            ):
+                raise ValueError(
+                    "Existing run metadata does not match the checkpoint."
+                )
+            mode = "a"
+        elif (
             self.metrics_path.exists() or self.metadata_path.exists()
         ) and not overwrite:
             raise FileExistsError(
                 f"Run {run_name!r} already exists in {self.run_dir}."
             )
+        else:
+            mode = "w" if overwrite else "x"
         self.run_dir.mkdir(parents=True, exist_ok=True)
-        mode = "w" if overwrite else "x"
         self._metrics_file = self.metrics_path.open(
             mode,
             encoding="utf-8",

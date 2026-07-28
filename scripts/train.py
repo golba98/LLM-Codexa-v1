@@ -16,6 +16,12 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import load_config
+from src.checkpointing import (
+    CheckpointManager,
+    SchedulerState,
+    build_checkpoint_payload,
+    load_checkpoint,
+)
 from src.model import LanguageModel, count_parameters
 from src.token_data import (
     MemmapTokenDataset,
@@ -58,6 +64,16 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--log-dir", type=Path, default=Path("logs"))
     parser.add_argument("--run-name", default="training")
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        default=Path("checkpoints"),
+    )
+    parser.add_argument(
+        "--resume",
+        type=Path,
+        help="Trusted local checkpoint to resume, such as latest.pt.",
+    )
     parser.add_argument("--no-validation", action="store_true")
     parser.add_argument("--overwrite-log", action="store_true")
     return parser
@@ -249,7 +265,38 @@ def run(arguments: argparse.Namespace) -> int:
         weight_decay=training_config.weight_decay,
     )
     scaler = create_grad_scaler(device, precision)
+    minimum_learning_rate = training_config.learning_rate * 0.1
+    scheduler_state = SchedulerState(
+        warmup_steps=min(training_config.warmup_steps, max_steps - 1),
+        max_steps=max_steps,
+        peak_learning_rate=training_config.learning_rate,
+        minimum_learning_rate=minimum_learning_rate,
+    )
+    state = TrainingState()
     run_id = str(uuid.uuid4())
+    if arguments.resume is not None:
+        if arguments.overwrite_log:
+            raise ValueError("--resume cannot be combined with --overwrite-log.")
+        loaded = load_checkpoint(
+            arguments.resume,
+            model=model,
+            optimizer=optimizer,
+            scaler=scaler,
+            expected_config=project_config,
+            restore_rng=True,
+            map_location=device,
+        )
+        if loaded.run_name != arguments.run_name:
+            raise ValueError(
+                f"Checkpoint run name {loaded.run_name!r} does not match "
+                f"--run-name {arguments.run_name!r}."
+            )
+        if loaded.scheduler != scheduler_state:
+            raise ValueError(
+                "Checkpoint learning-rate schedule does not match this run."
+            )
+        state = loaded.state
+        run_id = loaded.run_id
     start_timestamp = utc_timestamp()
 
     print(f"Device: {device}")
@@ -261,39 +308,100 @@ def run(arguments: argparse.Namespace) -> int:
         arguments.log_dir,
         arguments.run_name,
         overwrite=arguments.overwrite_log,
+        resume=arguments.resume is not None,
+        expected_run_id=run_id,
     )
-    state = TrainingState()
-    try:
-        logger.write_metadata(
-            {
-                "run_name": arguments.run_name,
-                "run_id": run_id,
-                "config_path": str(arguments.config),
-                "train_token_file_path": str(arguments.train_token_file),
-                "validation_token_file_path": (
-                    None if validation_path is None else str(validation_path)
-                ),
-                "token_manifest_path": str(arguments.token_manifest),
-                "device": str(device),
-                "precision": precision.name,
-                "start_timestamp_utc": start_timestamp,
-                "requested_maximum_optimizer_steps": max_steps,
-                "gradient_accumulation_steps": (
-                    training_config.gradient_accumulation_steps
-                ),
-                "micro_batch_size": training_config.micro_batch_size,
-                "context_length": project_config.model.context_length,
-                "total_parameter_count": total_parameters,
-                "trainable_parameter_count": trainable_parameters,
-                "git_commit": _git_commit(),
-                "command_line_arguments": {
-                    key: str(value) if isinstance(value, Path) else value
-                    for key, value in vars(arguments).items()
-                },
-                "model_config": asdict(project_config.model),
-                "training_config": asdict(training_config),
-            }
+    checkpoint_manager = CheckpointManager(
+        arguments.checkpoint_dir,
+        arguments.run_name,
+    )
+    tokenizer_reference = manifest.get("tokenizer_path")
+    tokenizer_checksum = manifest.get("tokenizer_sha256")
+    if tokenizer_reference is not None and not isinstance(
+        tokenizer_reference,
+        str,
+    ):
+        raise ValueError("Manifest tokenizer path must be a string.")
+    if tokenizer_checksum is not None and not isinstance(tokenizer_checksum, str):
+        raise ValueError("Manifest tokenizer checksum must be a string.")
+
+    def save_checkpoint(
+        current_state: TrainingState,
+        metrics: object,
+        *,
+        force: bool = False,
+    ) -> None:
+        optimizer_step = current_state.optimizer_step
+        interval_boundary = (
+            optimizer_step % training_config.checkpoint_interval == 0
         )
+        if not force and not interval_boundary and optimizer_step != max_steps:
+            return
+        validation_loss = getattr(metrics, "validation_loss", None)
+        is_best = (
+            validation_loss is not None
+            and current_state.best_validation_loss == validation_loss
+        )
+        payload = build_checkpoint_payload(
+            model=model,
+            optimizer=optimizer,
+            scaler=scaler,
+            state=current_state,
+            scheduler=scheduler_state,
+            config=project_config,
+            run_name=arguments.run_name,
+            run_id=run_id,
+            tokenizer_reference=tokenizer_reference,
+            tokenizer_sha256=tokenizer_checksum,
+        )
+        checkpoint_manager.save(
+            payload,
+            is_best=is_best,
+            milestone=interval_boundary,
+        )
+
+    try:
+        if arguments.resume is None:
+            logger.write_metadata(
+                {
+                    "run_name": arguments.run_name,
+                    "run_id": run_id,
+                    "config_path": str(arguments.config),
+                    "train_token_file_path": str(arguments.train_token_file),
+                    "validation_token_file_path": (
+                        None
+                        if validation_path is None
+                        else str(validation_path)
+                    ),
+                    "token_manifest_path": str(arguments.token_manifest),
+                    "device": str(device),
+                    "precision": precision.name,
+                    "start_timestamp_utc": start_timestamp,
+                    "requested_maximum_optimizer_steps": max_steps,
+                    "gradient_accumulation_steps": (
+                        training_config.gradient_accumulation_steps
+                    ),
+                    "micro_batch_size": training_config.micro_batch_size,
+                    "context_length": project_config.model.context_length,
+                    "total_parameter_count": total_parameters,
+                    "trainable_parameter_count": trainable_parameters,
+                    "git_commit": _git_commit(),
+                    "command_line_arguments": {
+                        key: str(value) if isinstance(value, Path) else value
+                        for key, value in vars(arguments).items()
+                    },
+                    "model_config": asdict(project_config.model),
+                    "training_config": asdict(training_config),
+                    "checkpoint_directory": str(checkpoint_manager.run_dir),
+                    "resume_checkpoint": None,
+                }
+            )
+        if state.optimizer_step >= max_steps:
+            print(
+                f"Checkpoint already completed {state.optimizer_step} "
+                f"optimizer steps; nothing to do."
+            )
+            return 0
         state, metrics = train_model(
             model,
             train_loader,
@@ -305,8 +413,9 @@ def run(arguments: argparse.Namespace) -> int:
                 training_config.gradient_accumulation_steps
             ),
             gradient_clip=training_config.gradient_clip,
-            warmup_steps=min(training_config.warmup_steps, max_steps - 1),
+            warmup_steps=scheduler_state.warmup_steps,
             peak_learning_rate=training_config.learning_rate,
+            minimum_learning_rate=minimum_learning_rate,
             seed=training_config.seed,
             state=state,
             scaler=scaler,
@@ -320,10 +429,18 @@ def run(arguments: argparse.Namespace) -> int:
             run_name=arguments.run_name,
             run_id=run_id,
             logger=logger,
+            on_optimizer_step=save_checkpoint,
             progress=True,
         )
     except KeyboardInterrupt:
         logger.flush()
+        at_boundary = (
+            state.micro_step
+            == state.optimizer_step
+            * training_config.gradient_accumulation_steps
+        )
+        if state.optimizer_step > 0 and at_boundary:
+            save_checkpoint(state, object(), force=True)
         print(
             f"Interrupted after {state.optimizer_step} completed optimizer steps.",
             file=sys.stderr,

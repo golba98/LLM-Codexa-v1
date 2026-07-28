@@ -121,6 +121,7 @@ def test_state_and_metrics() -> None:
         "optimizer_step": 1,
         "tokens_seen": 16,
         "completed_epochs": 1,
+        "batches_in_epoch": 0,
         "best_validation_loss": 3.0,
     }
     timestamp = utc_timestamp()
@@ -555,6 +556,8 @@ def test_cli_cpu() -> None:
                 "0",
                 "--log-dir",
                 str(root / "logs"),
+                "--checkpoint-dir",
+                str(root / "checkpoints"),
                 "--run-name",
                 "cli",
                 "--no-validation",
@@ -566,6 +569,40 @@ def test_cli_cpu() -> None:
         record = json.loads(metrics_path.read_text(encoding="utf-8"))
         assert record["optimizer_step"] == 1
         assert record["validation_loss"] is None
+        checkpoint_path = root / "checkpoints" / "cli" / "latest.pt"
+        assert checkpoint_path.is_file()
+        assert checkpoint_path.with_suffix(".pt.sha256").is_file()
+
+        resume_arguments = build_argument_parser().parse_args(
+            [
+                "--config",
+                str(config),
+                "--train-token-file",
+                str(train),
+                "--validation-token-file",
+                str(validation),
+                "--token-manifest",
+                str(manifest),
+                "--device",
+                "cpu",
+                "--precision",
+                "fp32",
+                "--max-steps",
+                "1",
+                "--num-workers",
+                "0",
+                "--log-dir",
+                str(root / "logs"),
+                "--checkpoint-dir",
+                str(root / "checkpoints"),
+                "--run-name",
+                "cli",
+                "--no-validation",
+                "--resume",
+                str(checkpoint_path),
+            ]
+        )
+        assert run(resume_arguments) == 0
 
 
 def test_cuda_precision_paths() -> None:
