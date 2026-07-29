@@ -1,0 +1,90 @@
+"""Executable tests for strict checkpoint-evaluation comparison."""
+
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+
+from scripts.compare_evaluations import run
+
+
+def _report(path: Path, *, step: int, loss: float, repetition: float) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "checkpoint": f"checkpoint-{step}.pt",
+                "checkpoint_optimizer_step": step,
+                "checkpoint_run_id": "test-run",
+                "validation_loss": loss,
+                "validation_perplexity": 2.0**loss,
+                "samples": [
+                    {
+                        "category": "coherence",
+                        "quality": {
+                            "repeated_four_gram_rate": repetition,
+                            "malformed_character_count": 0,
+                            "word_count": 12,
+                        },
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _raises(exception_type: type[BaseException], operation) -> None:
+    try:
+        operation()
+    except exception_type:
+        return
+    raise AssertionError(f"Expected {exception_type.__name__}.")
+
+
+def main() -> None:
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        root = Path(temporary_directory)
+        first = root / "step-100.json"
+        second = root / "step-200.json"
+        output = root / "comparison.json"
+        _report(first, step=100, loss=2.5, repetition=0.0)
+        _report(second, step=200, loss=2.0, repetition=0.1)
+        comparison = run(
+            SimpleNamespace(
+                reports=[first, second],
+                output=output,
+                overwrite=False,
+            )
+        )
+        assert comparison["candidate_count"] == 2
+        assert comparison["best_checkpoint"] == "checkpoint-200.pt"
+        saved = json.loads(output.read_text(encoding="utf-8"))
+        assert saved["candidates"][0]["checkpoint_optimizer_step"] == 200
+        assert saved["candidates"][1]["checkpoint_optimizer_step"] == 100
+        _raises(
+            FileExistsError,
+            lambda: run(
+                SimpleNamespace(
+                    reports=[first, second],
+                    output=output,
+                    overwrite=False,
+                )
+            ),
+        )
+        _raises(
+            ValueError,
+            lambda: run(
+                SimpleNamespace(
+                    reports=[first],
+                    output=root / "one.json",
+                    overwrite=False,
+                )
+            ),
+        )
+
+    print("All evaluation-comparison tests passed.")
+
+
+if __name__ == "__main__":
+    main()
