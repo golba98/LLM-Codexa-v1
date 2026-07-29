@@ -466,7 +466,7 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 17 — Evaluation
 
-- [ ] Create fixed evaluation prompt suite
+- [x] Create fixed evaluation prompt suite
 - [ ] Measure validation perplexity
 - [ ] Evaluate text coherence
 - [ ] Evaluate repetition
