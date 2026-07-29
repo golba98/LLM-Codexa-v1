@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sqlite3
@@ -157,6 +158,8 @@ def prepare_fineweb_edu(
                 }
                 for key in ("url", "language_score", "score"):
                     value = row.get(key)
+                    if isinstance(value, float) and not math.isfinite(value):
+                        continue
                     if isinstance(value, (str, int, float, bool)):
                         metadata[key] = value
                 record = {
@@ -166,7 +169,13 @@ def prepare_fineweb_edu(
                     "metadata": metadata,
                 }
                 output_file.write(
-                    json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
+                    json.dumps(
+                        record,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        allow_nan=False,
+                    )
+                    + "\n"
                 )
                 length = len(cleaned)
                 counts["cleaned_document_count"] += 1

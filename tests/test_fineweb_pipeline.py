@@ -32,7 +32,7 @@ def main() -> None:
                         "https://example.com/c",
                         "https://example.com/d",
                     ],
-                    "score": [4.0, 3.0, 4.0, 5.0],
+                    "score": [float("nan"), 3.0, 4.0, 5.0],
                 }
             ),
             shard,
@@ -78,6 +78,10 @@ def main() -> None:
             "First document.",
             "A distinct document.",
         }
+        first_record = next(
+            record for record in records if record["document_id"] == "a"
+        )
+        assert "score" not in first_record["metadata"]
         tokenizer = train_tokenizer(
             [first / "train.jsonl", first / "validation.jsonl"],
             output_dir=root / "tokenizer",
