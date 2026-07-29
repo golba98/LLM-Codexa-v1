@@ -1,0 +1,34 @@
+[
+  {
+    "category": "story_coherence",
+    "prompt": "Once upon a time, there was a little girl named Lily"
+  },
+  {
+    "category": "causal_consistency",
+    "prompt": "Tom put an ice cube in the warm sun. After an hour,"
+  },
+  {
+    "category": "factual_consistency",
+    "prompt": "The Earth travels around the"
+  },
+  {
+    "category": "code_completion",
+    "prompt": "def add_numbers(a, b):\n    return"
+  },
+  {
+    "category": "instruction_sensitivity",
+    "prompt": "Write exactly three colors, separated by commas:"
+  },
+  {
+    "category": "context_retention",
+    "prompt": "Mira's key was blue. She put it in the wooden box. Later, when Mira opened the box, the key was"
+  },
+  {
+    "category": "long_context",
+    "prompt": "Ava promised Ben that she would bring the red book after lunch. They walked through the garden, fed the birds, and talked about school. When lunch ended, Ben asked Ava what she had promised to bring. Ava answered,"
+  },
+  {
+    "category": "memorization_probe",
+    "prompt": "Lily loved to play with her toys and her friends. One day,"
+  }
+]
