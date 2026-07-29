@@ -353,7 +353,8 @@ def test_resume_logger_identity() -> None:
     with tempfile.TemporaryDirectory() as temporary_directory:
         logger = JsonlRunLogger(temporary_directory, "run")
         logger.write_metadata({"run_name": "run", "run_id": "id"})
-        logger.write_metrics({"optimizer_step": 1})
+        logger.write_metrics({"optimizer_step": 1, "run_id": "id"})
+        logger.write_metrics({"optimizer_step": 2, "run_id": "id"})
         logger.close()
 
         resumed = JsonlRunLogger(
@@ -361,8 +362,9 @@ def test_resume_logger_identity() -> None:
             "run",
             resume=True,
             expected_run_id="id",
+            expected_optimizer_step=1,
         )
-        resumed.write_metrics({"optimizer_step": 2})
+        resumed.write_metrics({"optimizer_step": 2, "run_id": "id"})
         resumed.close()
         records = [
             json.loads(line)

@@ -670,6 +670,7 @@ class JsonlRunLogger:
         overwrite: bool = False,
         resume: bool = False,
         expected_run_id: str | None = None,
+        expected_optimizer_step: int | None = None,
     ) -> None:
         if not run_name or Path(run_name).name != run_name:
             raise ValueError("run_name must be a non-empty path-safe name.")
@@ -693,6 +694,11 @@ class JsonlRunLogger:
                 raise ValueError(
                     "Existing run metadata does not match the checkpoint."
                 )
+            if expected_optimizer_step is not None:
+                self._truncate_metrics_for_resume(
+                    expected_run_id=expected_run_id,
+                    expected_optimizer_step=expected_optimizer_step,
+                )
             mode = "a"
         elif (
             self.metrics_path.exists() or self.metadata_path.exists()
@@ -707,6 +713,82 @@ class JsonlRunLogger:
             mode,
             encoding="utf-8",
         )
+
+    def _truncate_metrics_for_resume(
+        self,
+        *,
+        expected_run_id: str | None,
+        expected_optimizer_step: int,
+    ) -> None:
+        if (
+            not isinstance(expected_optimizer_step, int)
+            or isinstance(expected_optimizer_step, bool)
+            or expected_optimizer_step < 0
+        ):
+            raise ValueError(
+                "expected_optimizer_step must be a non-negative integer."
+            )
+        retained: list[str] = []
+        previous_step = 0
+        dropped = False
+        with self.metrics_path.open("r", encoding="utf-8") as metrics_file:
+            for line_number, line in enumerate(metrics_file, start=1):
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as error:
+                    raise ValueError(
+                        f"{self.metrics_path}:{line_number}: malformed JSON."
+                    ) from error
+                if not isinstance(record, dict):
+                    raise ValueError(
+                        f"{self.metrics_path}:{line_number}: metric must be "
+                        "an object."
+                    )
+                run_id = record.get("run_id")
+                step = record.get("optimizer_step")
+                if expected_run_id is not None and run_id != expected_run_id:
+                    raise ValueError(
+                        "Metrics run identity does not match the checkpoint."
+                    )
+                if (
+                    not isinstance(step, int)
+                    or isinstance(step, bool)
+                    or step <= previous_step
+                ):
+                    raise ValueError(
+                        "Metrics optimizer steps must be strictly increasing."
+                    )
+                previous_step = step
+                if step <= expected_optimizer_step:
+                    retained.append(line)
+                else:
+                    dropped = True
+        retained_step = (
+            0
+            if not retained
+            else int(json.loads(retained[-1])["optimizer_step"])
+        )
+        if retained_step != expected_optimizer_step:
+            raise ValueError(
+                "Metrics do not contain the checkpoint optimizer-step tail."
+            )
+        if not dropped:
+            return
+        descriptor, temporary_name = tempfile.mkstemp(
+            dir=self.run_dir,
+            prefix=".train_metrics.",
+            suffix=".tmp",
+        )
+        temporary_path = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as output_file:
+                output_file.writelines(retained)
+                output_file.flush()
+                os.fsync(output_file.fileno())
+            temporary_path.replace(self.metrics_path)
+        except BaseException:
+            temporary_path.unlink(missing_ok=True)
+            raise
 
     def write_metadata(self, metadata: Mapping[str, object]) -> None:
         serialized = json.dumps(

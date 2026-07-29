@@ -207,6 +207,9 @@ def run(arguments: argparse.Namespace) -> int:
         overwrite=arguments.overwrite_log,
         resume=arguments.resume is not None,
         expected_run_id=run_id,
+        expected_optimizer_step=(
+            state.optimizer_step if arguments.resume is not None else None
+        ),
     )
     manager = CheckpointManager(arguments.checkpoint_dir, arguments.run_name)
 
