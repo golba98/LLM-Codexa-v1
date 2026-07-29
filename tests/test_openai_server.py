@@ -30,6 +30,18 @@ def main() -> None:
         "User: A little fox found a key.\n"
         "Assistant:"
     )
+    assert render_chat_prompt(
+        [
+            {"role": "user", "content": "Remember blue."},
+            {"role": "assistant", "content": "I will remember blue."},
+            {"role": "user", "content": "What color did I name?"},
+        ]
+    ) == (
+        "User: Remember blue.\n"
+        "Assistant: I will remember blue.\n"
+        "User: What color did I name?\n"
+        "Assistant:"
+    )
     request = validate_chat_request(
         {
             "model": MODEL_ID,

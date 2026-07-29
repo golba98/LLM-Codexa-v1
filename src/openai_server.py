@@ -12,11 +12,12 @@ import torch
 from src.checkpointing import load_model_checkpoint, verify_checkpoint_checksum
 from src.generate import GenerationConfig, generate_token_ids
 from src.model import LanguageModel, ModelConfig
+from src.sft import ChatMessage, format_chat_messages
 from src.tokenizer import EOS_TOKEN, load_tokenizer
 from src.training import resolve_device
 
 
-MODEL_ID = "codexa-v1-intermediate"
+MODEL_ID = "codexa-v1-chat"
 
 
 @dataclass(frozen=True)
@@ -29,22 +30,17 @@ class CompletionResult:
 
 
 def render_chat_prompt(messages: object) -> str:
-    """Render a strict OpenAI messages array for the base language model."""
+    """Render OpenAI messages with the canonical Codexa chat template."""
 
     if not isinstance(messages, list) or not messages:
         raise ValueError("messages must be a non-empty array.")
-    rendered: list[str] = []
-    labels = {
-        "system": "System",
-        "user": "User",
-        "assistant": "Assistant",
-    }
+    parsed: list[ChatMessage] = []
     for index, message in enumerate(messages):
         if not isinstance(message, dict):
             raise ValueError(f"messages[{index}] must be an object.")
         role = message.get("role")
         content = message.get("content")
-        if role not in labels:
+        if role not in {"system", "user", "assistant"}:
             raise ValueError(
                 f"messages[{index}].role must be system, user, or assistant."
             )
@@ -52,9 +48,8 @@ def render_chat_prompt(messages: object) -> str:
             raise ValueError(
                 f"messages[{index}].content must be a non-empty string."
             )
-        rendered.append(f"{labels[role]}: {content.strip()}")
-    rendered.append("Assistant:")
-    return "\n".join(rendered)
+        parsed.append(ChatMessage(role=role, content=content.strip()))
+    return format_chat_messages(parsed, add_generation_prompt=True)
 
 
 def _model_config(checkpoint_path: Path) -> ModelConfig:

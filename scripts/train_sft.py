@@ -28,7 +28,7 @@ from src.sft import (
     CHAT_TEMPLATE_VERSION,
     InstructionDataset,
     instruction_collate,
-    load_instruction_records,
+    load_chat_records,
     split_instruction_records,
     validate_pad_token,
 )
@@ -98,7 +98,7 @@ def run(arguments: argparse.Namespace) -> int:
     tokenizer = load_tokenizer(arguments.tokenizer)
     validate_pad_token(tokenizer)
     tokenizer_checksum = file_sha256(arguments.tokenizer)
-    records = load_instruction_records(arguments.instruction_jsonl)
+    records = load_chat_records(arguments.instruction_jsonl)
     training_records, validation_records = split_instruction_records(
         records,
         validation_ratio=arguments.validation_ratio,

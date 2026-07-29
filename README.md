@@ -294,34 +294,46 @@ with the same documented chat template:
   --overwrite
 ```
 
-## Optional instruction tuning
+## Chat instruction tuning
 
-The base model and instruction model use separate run names and checkpoint
+The base model and chat model use separate run names and checkpoint
 directories. Download the pinned CC-BY-SA Dolly dataset:
 
 ```bash
 .venv/bin/python -m scripts.download_dolly
 ```
 
-After selecting the final base checkpoint, run response-masked supervised
-fine-tuning:
+Prepare the deterministic canonical chat dataset. This retains all validated
+single turns and adds context-grounded follow-up turns to a seeded 20% subset:
+
+```bash
+.venv/bin/python -m scripts.prepare_chat_dataset \
+  data/raw/databricks-dolly-15k/databricks-dolly-15k.jsonl \
+  --output data/processed/codexa-chat-v1/chat.jsonl \
+  --manifest data/processed/codexa-chat-v1/chat_manifest.json \
+  --dataset-name codexa-chat-v1 \
+  --license cc-by-sa-3.0
+```
+
+After selecting the base checkpoint, run assistant-only, causally shifted
+supervised fine-tuning:
 
 ```bash
 .venv/bin/python -m scripts.train_sft \
   --config configs/250m_sft.yaml \
-  --base-checkpoint checkpoints/BASE_RUN/best.pt \
-  --tokenizer checkpoints/FINAL_TOKENIZER/tokenizer.json \
+  --base-checkpoint checkpoints/phase15-500m/best.pt \
+  --tokenizer checkpoints/tokenizer-tinystories/tokenizer.json \
   --instruction-jsonl \
-    data/raw/databricks-dolly-15k/databricks-dolly-15k.jsonl \
+    data/processed/codexa-chat-v1/chat.jsonl \
   --device cuda \
   --precision bf16 \
-  --run-name codexa-v1-sft \
+  --run-name codexa-v1-chat \
   --checkpoint-dir checkpoints \
   --overwrite-log
 ```
 
 See `documentation/CHAT_TEMPLATE.md` for the exact template, target masking,
-truncation behavior, and derivative-license warning.
+multi-turn behavior, frozen dataset checksum, and derivative-license warning.
 
 Generate from an instruction-tuned release with automatic template formatting:
 

@@ -497,52 +497,52 @@ fine-tuning the existing model; it must not increase the model parameter count.
 
 - [x] Commit to producing a conversational Codexa checkpoint
 - [x] Keep the existing 248,565,504-parameter architecture unchanged
-- [ ] Select the best 248,565,504-parameter base checkpoint
-- [ ] Verify the SFT model has exactly 248,565,504 trainable parameters
+- [x] Select the best 248,565,504-parameter base checkpoint
+- [x] Verify the SFT model has exactly 248,565,504 trainable parameters
 - [x] Prepare instruction dataset
 - [x] Validate dataset licenses
-- [ ] Add high-quality single-turn conversations
-- [ ] Add high-quality multi-turn conversations
-- [ ] Add question answering, summarization, rewriting, and reasoning examples
+- [x] Add high-quality single-turn conversations
+- [x] Add deterministic context-grounded multi-turn conversations
+- [ ] Add broader rewriting and reasoning examples
 - [ ] Add refusal and uncertainty examples without claiming unsupported knowledge
-- [ ] Remove malformed, duplicated, low-quality, and conflicting conversations
+- [x] Reject malformed conversations and remove exact duplicates
 - [x] Define the canonical `User:` / `Assistant:` chat template
-- [ ] Extend the chat template to preserve ordered multi-turn history
-- [ ] Ensure training and inference use the identical chat template
+- [x] Extend the chat template to preserve ordered multi-turn history
+- [x] Ensure training and inference use the identical chat template
 - [x] Mask prompt tokens so loss is computed only on assistant responses
-- [ ] Verify padding and truncated examples remain correctly loss-masked
+- [x] Verify padding and truncated examples remain correctly loss-masked
 - [x] Add supervised fine-tuning script
 - [x] Run small SFT test
-- [ ] Freeze the versioned chat dataset and record its checksum
+- [x] Freeze the versioned chat dataset and record its checksum
 - [ ] Tune SFT learning rate, warmup, batch size, and epoch count
-- [ ] Run a short overfit test on a tiny conversation sample
-- [ ] Run a bounded SFT pilot and inspect fixed chat prompts
-- [ ] Train the full chat SFT run from the selected base checkpoint
-- [ ] Monitor training and validation loss for overfitting
+- [x] Run a short overfit test on a tiny conversation sample
+- [x] Run a bounded SFT pilot and inspect fixed chat prompts
+- [x] Train the full chat SFT run from the selected base checkpoint
+- [x] Monitor training and validation loss for overfitting
 - [ ] Preserve general language ability while improving conversational behavior
-- [ ] Evaluate instruction following and response relevance
-- [ ] Evaluate multi-turn context retention
-- [ ] Evaluate conversation-role consistency
-- [ ] Evaluate repetition, malformed answers, and premature EOS output
+- [x] Evaluate instruction following and response relevance
+- [x] Evaluate multi-turn context retention
+- [x] Evaluate conversation-role consistency
+- [x] Evaluate repetition, malformed answers, and premature EOS output
 - [ ] Evaluate hallucination, uncertainty, and refusal behavior
-- [ ] Compare chat checkpoints with a fixed prompt suite
-- [ ] Save base and instruction checkpoints separately
-- [ ] Compare base and instruction models
+- [x] Compare chat checkpoints with a fixed prompt suite
+- [x] Save base and instruction checkpoints separately
+- [x] Compare base and instruction models
 - [x] Document chat format
-- [ ] Update the OpenAI-compatible server to use the canonical multi-turn template
-- [ ] Verify non-streaming and streaming chat completions
+- [x] Update the OpenAI-compatible server to use the canonical multi-turn template
+- [x] Verify non-streaming and streaming chat completions
 - [ ] Test the selected chat checkpoint through LM Studio
-- [ ] Record the final chat checkpoint, tokenizer, config, and checksums
+- [x] Record the selected chat checkpoint, tokenizer, config, and checksums
 
 ### Phase 18 completion criteria
 
-- [ ] Final chat model remains exactly 248,565,504 trainable parameters
+- [x] Final chat model remains exactly 248,565,504 trainable parameters
 - [ ] Chat model follows user instructions reliably
-- [ ] Multi-turn conversations preserve role order and relevant context
-- [ ] Assistant-only loss masking is verified by tests
+- [x] Multi-turn conversations preserve role order and relevant context
+- [x] Assistant-only loss masking is verified by tests
 - [ ] Responses are measurably better than the base checkpoint on the fixed chat suite
-- [ ] Base model remains preserved
-- [ ] Chat template and usage are documented
+- [x] Base model remains preserved
+- [x] Chat template and usage are documented
 - [ ] Codexa can be selected and tested successfully in LM Studio
 
 ---
