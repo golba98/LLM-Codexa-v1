@@ -258,28 +258,28 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 9 — Text Generation
 
-- [ ] Create `src/generate.py`
-- [ ] Load model checkpoint
-- [ ] Load tokenizer
-- [ ] Add greedy decoding
-- [ ] Add temperature sampling
-- [ ] Add top-k sampling
-- [ ] Add top-p sampling
-- [ ] Add repetition penalty
-- [ ] Add maximum generation length
-- [ ] Add EOS stopping
-- [ ] Add prompt input
-- [ ] Add random seed option
-- [ ] Save generated samples
-- [ ] Test CPU generation
-- [ ] Test GPU generation
+- [x] Create `src/generate.py`
+- [x] Load model checkpoint
+- [x] Load tokenizer
+- [x] Add greedy decoding
+- [x] Add temperature sampling
+- [x] Add top-k sampling
+- [x] Add top-p sampling
+- [x] Add repetition penalty
+- [x] Add maximum generation length
+- [x] Add EOS stopping
+- [x] Add prompt input
+- [x] Add random seed option
+- [x] Save generated samples
+- [x] Test CPU generation
+- [x] Test GPU generation
 
 ### Phase 9 completion criteria
 
-- [ ] Checkpoint can generate text
-- [ ] Generation stops correctly
-- [ ] Sampling options work
-- [ ] Outputs are saved for comparison
+- [x] Checkpoint can generate text
+- [x] Generation stops correctly
+- [x] Sampling options work
+- [x] Outputs are saved for comparison
 
 ---
 
@@ -554,7 +554,7 @@ Update this section as work continues.
 - [ ] Phase 6 — Tokenized Dataset Pipeline
 - [ ] Phase 7 — Training Loop
 - [x] Phase 8 — Checkpointing and Resume
-- [ ] Phase 9 — Text Generation
+- [x] Phase 9 — Text Generation
 - [ ] Phase 10 — Tiny Overfit Test
 - [ ] Phase 11 — Smoke Training Run
 - [ ] Phase 12 — Design the 250M Architecture

@@ -50,6 +50,19 @@ class LoadedCheckpoint:
     tokenizer_sha256: str | None
 
 
+@dataclass(frozen=True)
+class InferenceCheckpoint:
+    """Configuration and references restored for inference."""
+
+    path: Path
+    config: dict[str, object]
+    training_state: TrainingState
+    run_name: str
+    run_id: str
+    tokenizer_reference: str | None
+    tokenizer_sha256: str | None
+
+
 def file_sha256(path: str | Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as input_file:
@@ -404,6 +417,64 @@ def load_checkpoint(
         path=checkpoint_path,
         state=state,
         scheduler=scheduler,
+        run_name=run_name,
+        run_id=run_id,
+        tokenizer_reference=tokenizer_reference,
+        tokenizer_sha256=tokenizer_sha256,
+    )
+
+
+def load_model_checkpoint(
+    path: str | Path,
+    *,
+    model: nn.Module,
+    map_location: str | torch.device = "cpu",
+) -> InferenceCheckpoint:
+    """Load only model weights and inference metadata from a trusted checkpoint."""
+
+    checkpoint_path = Path(path)
+    verify_checkpoint_checksum(checkpoint_path)
+    try:
+        payload = torch.load(
+            checkpoint_path,
+            map_location=map_location,
+            weights_only=False,
+        )
+    except Exception as error:
+        raise ValueError(
+            f"Failed to deserialize checkpoint {checkpoint_path}: {error}"
+        ) from error
+    if not isinstance(payload, dict):
+        raise ValueError("Checkpoint payload must be an object.")
+    if payload.get("format_version") != CHECKPOINT_FORMAT_VERSION:
+        raise ValueError(
+            f"Unsupported checkpoint format {payload.get('format_version')!r}."
+        )
+    model_state = payload.get("model_state_dict")
+    config = payload.get("config")
+    if not isinstance(model_state, dict):
+        raise ValueError("Checkpoint model state is invalid.")
+    if not isinstance(config, dict):
+        raise ValueError("Checkpoint configuration is missing.")
+    state = _validate_training_state(payload.get("training_state"))
+    run_name = payload.get("run_name")
+    run_id = payload.get("run_id")
+    tokenizer_reference = payload.get("tokenizer_reference")
+    tokenizer_sha256 = payload.get("tokenizer_sha256")
+    if not isinstance(run_name, str) or not isinstance(run_id, str):
+        raise ValueError("Checkpoint run identity is invalid.")
+    if tokenizer_reference is not None and not isinstance(
+        tokenizer_reference,
+        str,
+    ):
+        raise ValueError("Checkpoint tokenizer reference is invalid.")
+    if tokenizer_sha256 is not None and not isinstance(tokenizer_sha256, str):
+        raise ValueError("Checkpoint tokenizer checksum is invalid.")
+    model.load_state_dict(model_state, strict=True)
+    return InferenceCheckpoint(
+        path=checkpoint_path,
+        config=config,
+        training_state=state,
         run_name=run_name,
         run_id=run_id,
         tokenizer_reference=tokenizer_reference,
