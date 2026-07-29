@@ -100,6 +100,16 @@ def run(arguments: argparse.Namespace) -> Path:
             source = Path(filename)
             if source.is_file():
                 shutil.copy2(source, temporary_directory / filename)
+        if checkpoint.training_stage == "supervised_fine_tuning":
+            chat_template = Path("documentation/CHAT_TEMPLATE.md")
+            if not chat_template.is_file():
+                raise FileNotFoundError(
+                    "SFT release requires documentation/CHAT_TEMPLATE.md."
+                )
+            shutil.copy2(
+                chat_template,
+                temporary_directory / "CHAT_TEMPLATE.md",
+            )
 
         artifact_names = [
             path.name
@@ -122,6 +132,9 @@ def run(arguments: argparse.Namespace) -> Path:
                 checkpoint.training_state.optimizer_step
             ),
             "source_checkpoint_run_id": checkpoint.run_id,
+            "training_stage": checkpoint.training_stage,
+            "chat_template_version": checkpoint.chat_template_version,
+            "base_checkpoint": checkpoint.base_checkpoint,
             "tokenizer_sha256": tokenizer_checksum,
             "artifacts": checksums,
         }

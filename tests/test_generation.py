@@ -253,6 +253,13 @@ def test_checkpoint_cli_generation() -> None:
                 output_dir=release_directory,
             )
         )
+        release_manifest = json.loads(
+            release_directory.joinpath("release_manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert release_manifest["training_stage"] == "pretraining"
+        assert release_manifest["chat_template_version"] is None
         release_output = run(
             build_argument_parser().parse_args(
                 [
@@ -295,6 +302,34 @@ def test_checkpoint_cli_generation() -> None:
         )
         assert instruction_output["instruction"] == "Name a color."
         assert instruction_output["prompt_token_ids"][0] == 1
+        sft_payload = dict(payload)
+        sft_payload["training_stage"] = "supervised_fine_tuning"
+        sft_payload["chat_template_version"] = "1.0"
+        sft_payload["base_checkpoint"] = {
+            "run_name": "generation",
+            "run_id": "generation-run-id",
+            "optimizer_step": 1,
+        }
+        sft_checkpoint = CheckpointManager(
+            root / "checkpoints",
+            "generation-sft",
+        ).save(sft_payload)
+        sft_release = root / "release-sft"
+        export_release(
+            SimpleNamespace(
+                checkpoint=sft_checkpoint,
+                tokenizer=tokenizer_path,
+                output_dir=sft_release,
+            )
+        )
+        sft_manifest = json.loads(
+            sft_release.joinpath("release_manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert sft_manifest["training_stage"] == "supervised_fine_tuning"
+        assert sft_manifest["chat_template_version"] == "1.0"
+        assert sft_release.joinpath("CHAT_TEMPLATE.md").is_file()
         released_tokenizer = release_directory / "tokenizer.json"
         released_tokenizer.write_bytes(
             released_tokenizer.read_bytes() + b"\n"
