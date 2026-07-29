@@ -408,19 +408,19 @@ Use this checklist to track progress from environment setup through full trainin
 ## Phase 15 — Intermediate Training Run
 
 - [ ] Prepare 500M–1B tokens
-- [ ] Validate dataset quality
-- [ ] Confirm storage requirements
+- [x] Validate dataset quality
+- [x] Confirm storage requirements
 - [ ] Confirm checkpoint backup plan
-- [ ] Begin intermediate run
+- [x] Begin intermediate run
 - [ ] Monitor thermals
 - [ ] Monitor GPU stability
 - [ ] Monitor loss curves
-- [ ] Generate milestone samples
-- [ ] Evaluate repetition
-- [ ] Evaluate coherence
-- [ ] Evaluate code completion
-- [ ] Evaluate long-context behavior
-- [ ] Compare checkpoints
+- [x] Generate milestone samples
+- [x] Evaluate repetition
+- [x] Evaluate coherence
+- [x] Evaluate code completion
+- [x] Evaluate long-context behavior
+- [x] Compare checkpoints
 - [ ] Select best checkpoint
 
 ### Phase 15 completion criteria
@@ -433,14 +433,14 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 16 — Full Pretraining Run
 
-- [ ] Prepare 3B–5B training tokens
-- [ ] Freeze final dataset version
-- [ ] Freeze tokenizer version
-- [ ] Freeze model configuration
-- [ ] Freeze training configuration
-- [ ] Verify disk space
+- [x] Prepare 3B–5B training tokens
+- [x] Freeze final dataset version
+- [x] Freeze tokenizer version
+- [x] Freeze model configuration
+- [x] Freeze training configuration
+- [x] Verify disk space
 - [ ] Verify backup storage
-- [ ] Verify system cooling
+- [x] Verify system cooling
 - [ ] Verify power stability
 - [ ] Run final preflight test
 - [ ] Start full training
