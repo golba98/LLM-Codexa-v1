@@ -132,8 +132,23 @@ def test_training_and_round_trip() -> tuple[int, float, str]:
             tokenizer,
             input_paths,
         )
+        single_inspection = inspect_tokenizer_streaming(
+            tokenizer,
+            input_paths,
+            encoding_batch_size=1,
+        )
+        assert streaming_inspection == single_inspection
         assert streaming_inspection.document_count == 8
         assert streaming_inspection.total_tokens > 0
+        assert_raises(
+            ValueError,
+            lambda: inspect_tokenizer_streaming(
+                tokenizer,
+                input_paths,
+                encoding_batch_size=0,
+            ),
+            "encoding_batch_size must be a positive integer",
+        )
 
         manifest = json.loads(
             first_result.manifest_path.read_text(encoding="utf-8")

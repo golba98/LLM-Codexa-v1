@@ -268,9 +268,17 @@ def iter_jsonl_texts(input_paths: Sequence[str | Path]) -> Iterable[str]:
 def inspect_tokenizer_streaming(
     tokenizer: Tokenizer,
     input_paths: Sequence[str | Path],
+    *,
+    encoding_batch_size: int = 256,
 ) -> TokenizerInspection:
     """Inspect a tokenizer over JSONL inputs with constant document memory."""
 
+    if (
+        not isinstance(encoding_batch_size, int)
+        or isinstance(encoding_batch_size, bool)
+        or encoding_batch_size <= 0
+    ):
+        raise ValueError("encoding_batch_size must be a positive integer.")
     unknown_id = tokenizer.token_to_id(UNK_TOKEN)
     if unknown_id is None:
         raise ValueError("Tokenizer does not contain the required <unk> token.")
@@ -279,13 +287,29 @@ def inspect_tokenizer_streaming(
     total_utf8_bytes = 0
     total_tokens = 0
     unknown_token_count = 0
-    for text in iter_jsonl_texts(input_paths):
-        token_ids = tokenizer.encode(text, add_special_tokens=False).ids
-        document_count += 1
-        total_characters += len(text)
-        total_utf8_bytes += len(text.encode("utf-8"))
-        total_tokens += len(token_ids)
-        unknown_token_count += token_ids.count(unknown_id)
+    texts = iter_jsonl_texts(input_paths)
+    while True:
+        batch: list[str] = []
+        for _ in range(encoding_batch_size):
+            try:
+                batch.append(next(texts))
+            except StopIteration:
+                break
+        if not batch:
+            break
+        encodings = tokenizer.encode_batch(
+            batch,
+            add_special_tokens=False,
+        )
+        if len(encodings) != len(batch):
+            raise RuntimeError("Tokenizer inspection batch length mismatch.")
+        for text, encoding in zip(batch, encodings, strict=True):
+            token_ids = encoding.ids
+            document_count += 1
+            total_characters += len(text)
+            total_utf8_bytes += len(text.encode("utf-8"))
+            total_tokens += len(token_ids)
+            unknown_token_count += token_ids.count(unknown_id)
     return TokenizerInspection(
         document_count=document_count,
         total_characters=total_characters,
@@ -342,6 +366,7 @@ def train_tokenizer_streaming(
         "format_version": TOKENIZER_FORMAT_VERSION,
         "tokenizers_version": tokenizers.__version__,
         "streaming": True,
+        "inspection_encoding_batch_size": 256,
         "input_paths": [str(path.resolve()) for path in normalized_paths],
         "input_sha256": {
             str(path.resolve()): _file_sha256(path) for path in normalized_paths
