@@ -226,6 +226,16 @@ fine-tuning:
 See `documentation/CHAT_TEMPLATE.md` for the exact template, target masking,
 truncation behavior, and derivative-license warning.
 
+Generate from an instruction-tuned release with automatic template formatting:
+
+```bash
+.venv/bin/python -m scripts.generate \
+  --release-dir releases/codexa-v1-instruct \
+  --instruction "Write exactly three colors, separated by commas." \
+  --device cuda \
+  --max-new-tokens 64
+```
+
 ## Limitations
 
 - TinyStories is a narrow synthetic English story corpus. A model trained only

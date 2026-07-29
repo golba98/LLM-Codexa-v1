@@ -166,7 +166,7 @@ def _project_config() -> ProjectConfig:
     return ProjectConfig(
         model=ModelConfig(
             vocab_size=512,
-            context_length=16,
+            context_length=64,
             num_layers=1,
             hidden_size=16,
             num_heads=4,
@@ -271,6 +271,29 @@ def test_checkpoint_cli_generation() -> None:
         assert release_output["checkpoint_run_id"] == "generation-run-id"
         assert release_output["release_directory"] == str(release_directory)
         assert release_output["checkpoint"] is None
+        instruction_output = run(
+            build_argument_parser().parse_args(
+                [
+                    "--release-dir",
+                    str(release_directory),
+                    "--instruction",
+                    "Name a color.",
+                    "--context",
+                    "Use a short answer.",
+                    "--device",
+                    "cpu",
+                    "--max-new-tokens",
+                    "1",
+                    "--greedy",
+                ]
+            )
+        )
+        assert instruction_output["prompt"] == (
+            "User: Name a color.\n"
+            "Context: Use a short answer.\n"
+            "Assistant:"
+        )
+        assert instruction_output["instruction"] == "Name a color."
         released_tokenizer = release_directory / "tokenizer.json"
         released_tokenizer.write_bytes(
             released_tokenizer.read_bytes() + b"\n"

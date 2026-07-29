@@ -31,7 +31,10 @@ def build_argument_parser() -> argparse.ArgumentParser:
     source.add_argument("--checkpoint", type=Path)
     source.add_argument("--release-dir", type=Path)
     parser.add_argument("--tokenizer", type=Path)
-    parser.add_argument("--prompt", required=True)
+    prompt_source = parser.add_mutually_exclusive_group(required=True)
+    prompt_source.add_argument("--prompt")
+    prompt_source.add_argument("--instruction")
+    parser.add_argument("--context")
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--max-new-tokens", type=int, default=128)
     parser.add_argument("--temperature", type=float, default=1.0)
@@ -91,6 +94,19 @@ def _atomic_json_write(path: Path, value: object) -> None:
 
 def run(arguments: argparse.Namespace) -> dict[str, object]:
     device = resolve_device(arguments.device)
+    if arguments.instruction is not None:
+        from src.sft import format_instruction_prompt
+
+        prompt = format_instruction_prompt(
+            arguments.instruction,
+            "" if arguments.context is None else arguments.context,
+        )
+    else:
+        if arguments.context is not None:
+            raise ValueError("--context requires --instruction.")
+        if arguments.prompt is None:
+            raise ValueError("--prompt or --instruction is required.")
+        prompt = arguments.prompt
     if arguments.release_dir is not None:
         if arguments.tokenizer is not None:
             raise ValueError(
@@ -135,7 +151,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
     if eos_token_id != 2 or bos_token_id != 1:
         raise ValueError("Tokenizer must use <bos>=1 and <eos>=2.")
     prompt_ids = tokenizer.encode(
-        arguments.prompt,
+        prompt,
         add_special_tokens=False,
     ).ids
     if not prompt_ids:
@@ -172,7 +188,9 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         "tokenizer": str(tokenizer_path),
         "tokenizer_sha256": tokenizer_checksum,
         "device": str(device),
-        "prompt": arguments.prompt,
+        "prompt": prompt,
+        "instruction": arguments.instruction,
+        "instruction_context": arguments.context,
         "prompt_token_ids": prompt_ids,
         "generated_token_ids": continuation_ids,
         "text": tokenizer.decode(generated, skip_special_tokens=True),
