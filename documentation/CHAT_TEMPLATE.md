@@ -17,6 +17,10 @@ supervised fine-tuning, labels for BOS, the user instruction, optional context,
 the `Assistant:` prefix, and padding are set to `-100`. Loss is calculated only
 for the assistant response and EOS.
 
+At inference time, `scripts.generate --instruction` uses the same prefix and
+prepends BOS token ID 1. It does not append EOS to the prompt; generation
+stops when the model emits EOS or reaches the context limit.
+
 Long prompts are deterministically truncated from their middle so both the
 beginning of the instruction and the `Assistant:` suffix survive. Responses
 are truncated only when the complete example would exceed the model's
