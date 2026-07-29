@@ -201,3 +201,12 @@ The 2,983,115,203-byte `best.pt`, `latest.pt`, and rotated `previous.pt`
 sidecars all passed `sha256sum -c`. The checkpoint directory remained 17 GiB,
 the primary filesystem retained 330 GiB free, and both services remained
 active at 99% GPU utilization and 65 C.
+
+At update 4,000, training loss was `3.356853574514389` and validation loss
+improved to `3.328778922557831`. The fourth numbered milestone,
+`milestones/step_000004000.pt`, and refreshed `best.pt` both have SHA-256
+`1d1b5546ebff0572f5782b2eeabf2979ba30732a7d43f5e824a55679693f5c56`.
+The 2,983,115,203-byte `best.pt`, `latest.pt`, `previous.pt`, and numbered
+milestone sidecars all passed `sha256sum -c`. The checkpoint directory then
+occupied 20 GiB with 327 GiB free on the primary filesystem. Both services
+remained active at 100% GPU utilization and 64 C.
