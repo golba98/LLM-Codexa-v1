@@ -56,11 +56,12 @@ The latest real-input preflight was recorded at
 - conservative retained-checkpoint projection 146,207,896,576 bytes
   (about 136.2 GiB)
 
-The run remains intentionally gated on:
-
-- selecting and verifying an independently mounted backup destination;
-- explicit confirmation of stable mains or UPS power, because this desktop
-  exposes no Mains/UPS state through `/sys/class/power_supply`.
+The original preflight was intentionally gated on an independently mounted
+backup destination and explicit confirmation of stable mains or UPS power.
+On 2026-07-29, the operator explicitly accepted running without an independent
+checkpoint backup on the Fedora disk and confirmed stable power. This exception
+must be recorded with `--accept-no-independent-backup`; omitting both that flag
+and `--backup-destination` still fails closed.
 
 The only other non-MSI physical disk discovered locally was inspected
 read-only and unmounted again. It is a 512 GB SATA SSD labeled `Games`, with
@@ -73,8 +74,9 @@ The current report is stored locally at:
 logs/phase16-full/preflight_current.json
 ```
 
-All checks except `power_source` and `independent_backup` passed. The full run
-must not start merely by suppressing those two failures.
+All checks except `power_source` and `independent_backup` passed in that report.
+The final report must record the operator's power confirmation and explicit
+backup-risk acceptance.
 
 The full run must not start until a final combined preflight reruns the model
 smoke and every check reports `pass`.
@@ -88,7 +90,7 @@ smoke and every check reports `pass`.
   --train-token-file data/tokenized/fineweb-edu/train.bin \
   --validation-token-file data/tokenized/fineweb-edu/validation.bin \
   --checkpoint-dir checkpoints/phase16-full \
-  --backup-destination /path/on/independent/filesystem \
+  --accept-no-independent-backup \
   --maximum-temperature 70 \
   --confirm-power-stability \
   --model-smoke \
@@ -97,3 +99,24 @@ smoke and every check reports `pass`.
 
 `--confirm-power-stability` is an explicit human assertion and must only be
 used after the power source has actually been checked.
+
+`--accept-no-independent-backup` records an explicit risk decision; it cannot
+be combined with `--backup-destination`. Checkpoints remain checksummed and
+atomic, but a failure of the primary Fedora disk could still destroy them.
+
+## Final preflight
+
+The final preflight passed all nine checks at `2026-07-29T13:21:17Z` and is
+stored at `logs/phase16-full/preflight_final.json`. It recorded:
+
+- 248,565,504 model parameters;
+- 365,605,363,712 free bytes against a 146,207,896,576-byte projection;
+- explicit stable-power confirmation;
+- explicit acceptance of running without an independent backup;
+- RTX 4080 CUDA and BF16 support at 46 C;
+- valid `uint16` production token data;
+- a successful BF16 forward/backward pass at sequence length 512.
+
+The no-backup waiver protects neither checkpoints nor logs from failure of the
+primary Fedora disk. Atomic writes and SHA-256 sidecars only detect corruption;
+they are not a substitute for an independent copy.

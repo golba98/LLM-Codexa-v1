@@ -442,10 +442,10 @@ fine-tuning the existing model; it must not increase the model parameter count.
 - [x] Freeze model configuration
 - [x] Freeze training configuration
 - [x] Verify disk space
-- [ ] Verify backup storage
+- [x] Record explicit operator acceptance of no independent backup
 - [x] Verify system cooling
-- [ ] Verify power stability
-- [ ] Run final preflight test
+- [x] Verify power stability by explicit operator confirmation
+- [x] Run final preflight test
 - [ ] Start full training
 - [ ] Save frequent checkpoints
 - [ ] Save milestone checkpoints

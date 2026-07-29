@@ -125,6 +125,60 @@ def _power_check(manually_confirmed: bool) -> PreflightCheck:
     )
 
 
+def _backup_checks(
+    checkpoint_directory: Path,
+    backup_destination: Path | None,
+    *,
+    required_bytes: int,
+    accept_no_independent_backup: bool,
+) -> list[PreflightCheck]:
+    if backup_destination is not None and accept_no_independent_backup:
+        raise ValueError(
+            "--backup-destination and --accept-no-independent-backup "
+            "cannot be used together."
+        )
+    if accept_no_independent_backup:
+        return [
+            PreflightCheck(
+                "independent_backup",
+                "pass",
+                "The operator explicitly accepted running without an "
+                "independent checkpoint backup.",
+            )
+        ]
+    if backup_destination is None:
+        return [
+            PreflightCheck(
+                "independent_backup",
+                "fail",
+                "No backup destination supplied. Provide one or explicitly "
+                "accept the risk with --accept-no-independent-backup.",
+            )
+        ]
+    try:
+        independent = independent_filesystems(
+            checkpoint_directory,
+            backup_destination,
+        )
+        checks = [
+            PreflightCheck(
+                "independent_backup",
+                "pass" if independent else "fail",
+                f"destination={backup_destination}",
+            )
+        ]
+        checks.append(
+            disk_capacity_check(
+                backup_destination,
+                required_bytes=required_bytes,
+                name="backup_capacity",
+            )
+        )
+        return checks
+    except Exception as error:
+        return [PreflightCheck("independent_backup", "fail", str(error))]
+
+
 def _model_smoke(
     model: LanguageModel,
     *,
@@ -197,6 +251,14 @@ def main() -> None:
     parser.add_argument("--validation-token-file", type=Path, required=True)
     parser.add_argument("--checkpoint-dir", type=Path, required=True)
     parser.add_argument("--backup-destination", type=Path)
+    parser.add_argument(
+        "--accept-no-independent-backup",
+        action="store_true",
+        help=(
+            "Record an explicit operator decision to run without an "
+            "independent checkpoint backup."
+        ),
+    )
     parser.add_argument("--maximum-temperature", type=int, default=70)
     parser.add_argument("--confirm-power-stability", action="store_true")
     parser.add_argument("--model-smoke", action="store_true")
@@ -243,38 +305,16 @@ def main() -> None:
     except Exception as error:
         checks.append(PreflightCheck("token_data", "fail", str(error)))
 
-    if arguments.backup_destination is None:
-        checks.append(
-            PreflightCheck(
-                "independent_backup",
-                "fail",
-                "No backup destination supplied.",
-            )
+    checks.extend(
+        _backup_checks(
+            arguments.checkpoint_dir,
+            arguments.backup_destination,
+            required_bytes=storage.projected_bytes,
+            accept_no_independent_backup=(
+                arguments.accept_no_independent_backup
+            ),
         )
-    else:
-        try:
-            independent = independent_filesystems(
-                arguments.checkpoint_dir,
-                arguments.backup_destination,
-            )
-            checks.append(
-                PreflightCheck(
-                    "independent_backup",
-                    "pass" if independent else "fail",
-                    f"destination={arguments.backup_destination}",
-                )
-            )
-            checks.append(
-                disk_capacity_check(
-                    arguments.backup_destination,
-                    required_bytes=storage.projected_bytes,
-                    name="backup_capacity",
-                )
-            )
-        except Exception as error:
-            checks.append(
-                PreflightCheck("independent_backup", "fail", str(error))
-            )
+    )
     if arguments.model_smoke:
         checks.append(
             _model_smoke(

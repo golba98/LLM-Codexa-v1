@@ -9,6 +9,7 @@ from src.preflight import (
     estimate_checkpoint_storage,
     independent_filesystems,
 )
+from scripts.preflight_full_run import _backup_checks
 
 
 def main() -> None:
@@ -40,6 +41,34 @@ def main() -> None:
         assert backup_check.name == "backup_capacity"
         assert backup_check.status == "pass"
         assert not independent_filesystems(path, path)
+        waived = _backup_checks(
+            path,
+            None,
+            required_bytes=1,
+            accept_no_independent_backup=True,
+        )
+        assert len(waived) == 1
+        assert waived[0].name == "independent_backup"
+        assert waived[0].status == "pass"
+        assert "explicitly accepted" in waived[0].detail
+        missing = _backup_checks(
+            path,
+            None,
+            required_bytes=1,
+            accept_no_independent_backup=False,
+        )
+        assert missing[0].status == "fail"
+        try:
+            _backup_checks(
+                path,
+                path,
+                required_bytes=1,
+                accept_no_independent_backup=True,
+            )
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Conflicting backup choices should fail.")
     try:
         estimate_checkpoint_storage(
             parameter_count=0,
