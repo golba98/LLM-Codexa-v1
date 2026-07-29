@@ -448,7 +448,7 @@ fine-tuning the existing model; it must not increase the model parameter count.
 - [x] Run final preflight test
 - [x] Start full training
 - [x] Save frequent checkpoints
-- [ ] Save milestone checkpoints
+- [x] Save milestone checkpoints
 - [x] Run validation periodically
 - [ ] Generate fixed prompt samples
 - [x] Record throughput
@@ -463,7 +463,7 @@ fine-tuning the existing model; it must not increase the model parameter count.
 - [ ] Target token count is reached
 - [ ] Final model and tokenizer are preserved
 - [ ] Training logs and configs are complete
-- [ ] Multiple valid checkpoints exist
+- [x] Multiple valid checkpoints exist
 
 ---
 

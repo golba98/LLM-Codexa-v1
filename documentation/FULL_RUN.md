@@ -149,3 +149,11 @@ The first scheduled validation completed at optimizer update 500 with loss
 at update 500 was `5.981600314378738`. The resulting `best.pt` and `latest.pt`
 files are each 2,983,115,203 bytes, and both SHA-256 sidecars passed independent
 `sha256sum -c` verification while training continued.
+
+At update 1,000, training loss was `5.185806065797806` and validation loss
+improved to `5.21401834487915`. The first numbered milestone,
+`milestones/step_000001000.pt`, was written at 2,983,115,203 bytes with SHA-256
+`d3d54da6a585a1aeca17194beee47e03af84d70670212a4365564cbcf9b901e5`.
+The `best.pt`, `latest.pt`, `previous.pt`, and numbered milestone sidecars all
+passed `sha256sum -c`. The checkpoint directory then occupied 12 GiB and the
+primary filesystem retained 335 GiB free.
