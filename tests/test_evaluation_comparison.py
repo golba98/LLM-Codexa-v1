@@ -21,6 +21,7 @@ def _report(path: Path, *, step: int, loss: float, repetition: float) -> None:
                     {
                         "category": "coherence",
                         "expected_term_matches": {"answer": step == 200},
+                        "expected_pattern_match": step == 200,
                         "quality": {
                             "repeated_four_gram_rate": repetition,
                             "malformed_character_count": 0,
@@ -68,6 +69,12 @@ def main() -> None:
                 "expected_term_match_rate"
             ]
             == 1.0
+        )
+        assert (
+            saved["candidates"][0]["category_metrics"]["coherence"][
+                "expected_pattern_match"
+            ]
+            is True
         )
         _raises(
             FileExistsError,

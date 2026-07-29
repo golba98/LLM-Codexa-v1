@@ -26,7 +26,8 @@
   },
   {
     "category": "instruction_sensitivity",
-    "prompt": "Write exactly three colors, separated by commas:"
+    "prompt": "Write exactly three colors, separated by commas:",
+    "expected_pattern": "^\\s*[^,\\n]+,\\s*[^,\\n]+,\\s*[^,\\n.!]+[.!]?\\s*$"
   },
   {
     "category": "context_retention",

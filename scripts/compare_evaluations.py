@@ -82,6 +82,13 @@ def _load_summary(path: Path) -> dict[str, object]:
             raise ValueError(
                 f"{path}: sample {index} has invalid expected-term matches."
             )
+        expected_pattern_match = sample.get("expected_pattern_match")
+        if expected_pattern_match is not None and not isinstance(
+            expected_pattern_match, bool
+        ):
+            raise ValueError(
+                f"{path}: sample {index} has invalid expected-pattern result."
+            )
         repetition_rates.append(repetition)
         malformed_count += malformed
         category_metrics[category] = {
@@ -93,6 +100,7 @@ def _load_summary(path: Path) -> dict[str, object]:
                 if not expected_matches
                 else sum(expected_matches.values()) / len(expected_matches)
             ),
+            "expected_pattern_match": expected_pattern_match,
         }
 
     validation_loss = value.get("validation_loss")

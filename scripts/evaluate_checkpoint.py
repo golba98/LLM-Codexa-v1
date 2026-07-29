@@ -7,6 +7,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 
@@ -99,6 +100,18 @@ def _read_prompts(path: Path) -> list[dict[str, object]]:
             raise ValueError(
                 f"Prompt suite entry {index} has invalid expected_terms."
             )
+        expected_pattern = item.get("expected_pattern")
+        if expected_pattern is not None:
+            if not isinstance(expected_pattern, str) or not expected_pattern:
+                raise ValueError(
+                    f"Prompt suite entry {index} has invalid expected_pattern."
+                )
+            try:
+                re.compile(expected_pattern)
+            except re.error as error:
+                raise ValueError(
+                    f"Prompt suite entry {index} has invalid expected_pattern."
+                ) from error
         prompts.append(dict(item))
     return prompts
 
@@ -348,6 +361,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         expected_terms = [
             str(term) for term in prompt_entry.get("expected_terms", [])
         ]
+        expected_pattern = prompt_entry.get("expected_pattern")
         sample: dict[str, object] = {
             "category": prompt_entry["category"],
             "prompt": prompt,
@@ -360,6 +374,17 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
                 term: term.casefold() in continuation.casefold()
                 for term in expected_terms
             },
+            "expected_pattern": expected_pattern,
+            "expected_pattern_match": (
+                None
+                if expected_pattern is None
+                else re.fullmatch(
+                    str(expected_pattern),
+                    continuation,
+                    flags=re.DOTALL,
+                )
+                is not None
+            ),
             "quality": analyze_generated_text(continuation).to_dict(),
             "reference_eight_gram_overlap": (
                 None
