@@ -32,6 +32,13 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as temporary_directory:
         path = Path(temporary_directory)
         assert disk_capacity_check(path, required_bytes=1).status == "pass"
+        backup_check = disk_capacity_check(
+            path,
+            required_bytes=1,
+            name="backup_capacity",
+        )
+        assert backup_check.name == "backup_capacity"
+        assert backup_check.status == "pass"
         assert not independent_filesystems(path, path)
     try:
         estimate_checkpoint_storage(

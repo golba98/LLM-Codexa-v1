@@ -264,6 +264,13 @@ def main() -> None:
                     f"destination={arguments.backup_destination}",
                 )
             )
+            checks.append(
+                disk_capacity_check(
+                    arguments.backup_destination,
+                    required_bytes=storage.projected_bytes,
+                    name="backup_capacity",
+                )
+            )
         except Exception as error:
             checks.append(
                 PreflightCheck("independent_backup", "fail", str(error))

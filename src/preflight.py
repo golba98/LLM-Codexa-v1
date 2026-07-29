@@ -75,19 +75,22 @@ def disk_capacity_check(
     path: Path,
     *,
     required_bytes: int,
+    name: str = "disk_capacity",
 ) -> PreflightCheck:
     if required_bytes <= 0:
         raise ValueError("required_bytes must be positive.")
+    if not name:
+        raise ValueError("name must be non-empty.")
     if not path.exists():
         return PreflightCheck(
-            "disk_capacity",
+            name,
             "fail",
             f"Path does not exist: {path}",
         )
     free = shutil.disk_usage(path).free
     status = "pass" if free >= required_bytes else "fail"
     return PreflightCheck(
-        "disk_capacity",
+        name,
         status,
         f"free={free} required={required_bytes} path={path}",
     )
