@@ -81,9 +81,18 @@ SHA-256 is:
 
 `6b26d3c98d8782298119875c368a69fdccbff03cca6fbfa1fc0851b0f3f8ef0c`
 
-The cleaned JSONL inputs and tokenizer are frozen. Final per-split token
-counts and binary checksums are recorded after the atomic token-data build
-completes.
+The cleaned JSONL inputs, tokenizer, and token binaries are frozen. The atomic
+binary build produced:
+
+| Split | Documents | Tokens | Bytes | SHA-256 |
+| --- | ---: | ---: | ---: | --- |
+| Train | 2,867,754 | 3,496,587,568 | 6,993,175,136 | `4575f7e3b837909ea512433d85c453a686466a74a14d2bfcfcaeef39728fe9f3` |
+| Validation | 14,375 | 17,453,678 | 34,907,356 | `f621153329cc54195986d47302e8f541d782f75e3ac971fa05d20e3b0295ef75` |
+
+At context length 2,048, strict non-overlapping packing exposes 1,707,318
+complete training sequences and 8,522 validation sequences, dropping only 303
+and 621 trailing tokens respectively. Full checksum, token-range,
+document-index contiguity, and EOS-position validation passed.
 
 FineWeb-Edu broadens subject coverage, but web filtering is imperfect. It can
 contain factual errors, bias, personally identifying text, unsafe material,

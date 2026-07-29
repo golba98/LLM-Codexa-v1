@@ -50,8 +50,22 @@ Measured on the prepared corpus before document-separator EOS insertion:
   `6b26d3c98d8782298119875c368a69fdccbff03cca6fbfa1fc0851b0f3f8ef0c`
 
 Adding exactly one EOS token per document produces 3,514,041,246 stored
-tokens across both splits. The final train/validation counts and binary
-checksums are recorded after the atomic token-data build completes.
+tokens across both splits:
+
+| Split | Documents | Tokens | Complete 2,048-token sequences | Trailing tokens |
+| --- | ---: | ---: | ---: | ---: |
+| Train | 2,867,754 | 3,496,587,568 | 1,707,318 | 303 |
+| Validation | 14,375 | 17,453,678 | 8,522 | 621 |
+
+The compact binary dtype is `uint16`. Binary SHA-256 checksums are:
+
+- Train:
+  `4575f7e3b837909ea512433d85c453a686466a74a14d2bfcfcaeef39728fe9f3`
+- Validation:
+  `f621153329cc54195986d47302e8f541d782f75e3ac971fa05d20e3b0295ef75`
+
+Full checksum, token-range, document-index contiguity, and EOS-position
+validation passed with `scripts.inspect_token_data`.
 
 FineWeb-Edu broadens educational and general web coverage relative to
 TinyStories. It remains English-focused, is not a specialized code corpus,
