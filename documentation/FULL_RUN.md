@@ -175,3 +175,11 @@ Learning-rate metrics also proved the zero-based scheduler boundary: update
 used index 2,000 and reached exactly `0.0003`; update 2,002 began cosine decay.
 The checkpoint directory then occupied 14 GiB with 333 GiB free on the primary
 filesystem.
+
+At update 2,500, training loss was `3.69601309299469` and validation loss
+improved to `3.7033477425575256`. The refreshed `best.pt` SHA-256 is
+`456a35d55708ed6679b9d8be5c5dd84385a300a1143a9c109334f86fac719c03`.
+The `best.pt`, `latest.pt`, and rotated `previous.pt` sidecars all passed
+`sha256sum -c`. Training remained healthy immediately afterward at update
+2,559, with finite loss and gradient norm, approximately 29,670 tokens/second,
+99% GPU utilization, 66 C, and 333 GiB free on the primary filesystem.
