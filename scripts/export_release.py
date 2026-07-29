@@ -60,6 +60,15 @@ def run(arguments: argparse.Namespace) -> Path:
         model=model,
         map_location="cpu",
     )
+    base_checkpoint_lineage = (
+        None
+        if checkpoint.base_checkpoint is None
+        else {
+            key: value
+            for key, value in checkpoint.base_checkpoint.items()
+            if key != "path"
+        }
+    )
     tokenizer_checksum = file_sha256(arguments.tokenizer)
     if (
         checkpoint.tokenizer_sha256 is not None
@@ -134,7 +143,7 @@ def run(arguments: argparse.Namespace) -> Path:
             "source_checkpoint_run_id": checkpoint.run_id,
             "training_stage": checkpoint.training_stage,
             "chat_template_version": checkpoint.chat_template_version,
-            "base_checkpoint": checkpoint.base_checkpoint,
+            "base_checkpoint": base_checkpoint_lineage,
             "tokenizer_sha256": tokenizer_checksum,
             "artifacts": checksums,
         }

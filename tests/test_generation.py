@@ -306,6 +306,7 @@ def test_checkpoint_cli_generation() -> None:
         sft_payload["training_stage"] = "supervised_fine_tuning"
         sft_payload["chat_template_version"] = "1.0"
         sft_payload["base_checkpoint"] = {
+            "path": "/private/machine/checkpoints/base.pt",
             "run_name": "generation",
             "run_id": "generation-run-id",
             "optimizer_step": 1,
@@ -329,6 +330,7 @@ def test_checkpoint_cli_generation() -> None:
         )
         assert sft_manifest["training_stage"] == "supervised_fine_tuning"
         assert sft_manifest["chat_template_version"] == "1.0"
+        assert "path" not in sft_manifest["base_checkpoint"]
         assert sft_release.joinpath("CHAT_TEMPLATE.md").is_file()
         released_tokenizer = release_directory / "tokenizer.json"
         released_tokenizer.write_bytes(
