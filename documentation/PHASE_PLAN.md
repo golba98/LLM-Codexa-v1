@@ -493,17 +493,17 @@ Use this checklist to track progress from environment setup through full trainin
 ## Phase 18 — Optional Instruction Tuning
 
 - [ ] Decide whether instruction tuning is needed
-- [ ] Prepare instruction dataset
-- [ ] Validate dataset licenses
-- [ ] Format chat templates
-- [ ] Add supervised fine-tuning script
-- [ ] Run small SFT test
+- [x] Prepare instruction dataset
+- [x] Validate dataset licenses
+- [x] Format chat templates
+- [x] Add supervised fine-tuning script
+- [x] Run small SFT test
 - [ ] Evaluate instruction following
 - [ ] Tune learning rate
 - [ ] Train full SFT run
 - [ ] Save base and instruction checkpoints separately
 - [ ] Compare base and instruction models
-- [ ] Document chat format
+- [x] Document chat format
 
 ### Phase 18 completion criteria
 
