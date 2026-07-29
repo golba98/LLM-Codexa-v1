@@ -122,6 +122,32 @@ training state. Resume only trusted local checkpoints:
   --resume checkpoints/RUN_NAME/latest.pt
 ```
 
+## Release export and backup
+
+Export only inference artifacts from the selected checkpoint:
+
+```bash
+.venv/bin/python -m scripts.export_release \
+  --checkpoint checkpoints/RUN_NAME/best.pt \
+  --tokenizer checkpoints/tokenizer-tinystories/tokenizer.json \
+  --output-dir releases/codexa-v1
+```
+
+The release contains safetensors weights, tokenizer, model configuration,
+training state, model card, license, manifest, and `SHA256SUMS`. Release
+directories and model weights remain ignored by Git.
+
+A real backup must use an independently mounted filesystem. The backup command
+rejects a same-filesystem destination by default:
+
+```bash
+.venv/bin/python -m scripts.backup_artifacts \
+  releases/codexa-v1 \
+  --destination /path/on/independent/storage/codexa-v1
+```
+
+The backup is written atomically and every copied file is verified by SHA-256.
+
 ## Generation
 
 ```bash
