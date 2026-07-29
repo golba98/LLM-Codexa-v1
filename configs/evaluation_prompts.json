@@ -25,7 +25,13 @@
   },
   {
     "category": "long_context",
-    "prompt": "Ava promised Ben that she would bring the red book after lunch. They walked through the garden, fed the birds, and talked about school. When lunch ended, Ben asked Ava what she had promised to bring. Ava answered,"
+    "prompt_prefix": "Remember this exact fact: Ava promised Ben that the secret object was a sapphire compass. ",
+    "prompt_filler": "They walked through the garden, observed the trees, fed the birds, discussed school, and carefully wrote ordinary notes about the afternoon. ",
+    "prompt_suffix": "After the long discussion, Ben asked Ava to name the secret object from the first fact. Ava answered that it was a",
+    "target_prompt_tokens": 1536,
+    "expected_terms": [
+      "sapphire compass"
+    ]
   },
   {
     "category": "memorization_probe",

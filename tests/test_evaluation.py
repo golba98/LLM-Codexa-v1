@@ -2,13 +2,25 @@
 
 import json
 import math
+from pathlib import Path
+from types import SimpleNamespace
 
+from scripts.evaluate_checkpoint import _build_prompt, _read_prompts
 from src.evaluation import (
     analyze_generated_text,
     ngram_overlap_rate,
     perplexity_from_loss,
     repeated_ngram_rate,
 )
+
+
+class _WhitespaceTokenizer:
+    def encode(self, text: str, *, add_special_tokens: bool):
+        assert not add_special_tokens
+        return SimpleNamespace(ids=list(range(1, len(text.split()) + 1)))
+
+    def decode(self, token_ids: list[int]) -> str:
+        return " ".join(f"token-{token_id}" for token_id in token_ids)
 
 
 def _raises(exception_type: type[BaseException], function) -> None:
@@ -46,6 +58,26 @@ def main() -> None:
     )
     assert overlap > 0.5
     assert ngram_overlap_rate("too short", "too short", ngram_size=4) == 0
+
+    prompts = _read_prompts(Path("configs/evaluation_prompts.json"))
+    long_context = next(
+        prompt for prompt in prompts if prompt["category"] == "long_context"
+    )
+    rendered, token_ids = _build_prompt(
+        long_context,
+        tokenizer=_WhitespaceTokenizer(),
+        context_length=2048,
+    )
+    assert rendered
+    assert len(token_ids) == 1536
+    _raises(
+        ValueError,
+        lambda: _build_prompt(
+            long_context,
+            tokenizer=_WhitespaceTokenizer(),
+            context_length=1024,
+        ),
+    )
 
     print("All evaluation-helper tests passed.")
 

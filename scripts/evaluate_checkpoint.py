@@ -57,23 +57,94 @@ def build_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _read_prompts(path: Path) -> list[dict[str, str]]:
+def _read_prompts(path: Path) -> list[dict[str, object]]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, list) or not value:
         raise ValueError("Prompt suite must be a non-empty JSON array.")
-    prompts: list[dict[str, str]] = []
+    prompts: list[dict[str, object]] = []
     for index, item in enumerate(value):
-        if (
-            not isinstance(item, dict)
-            or not isinstance(item.get("category"), str)
-            or not isinstance(item.get("prompt"), str)
-            or not item["prompt"]
+        if not isinstance(item, dict) or not isinstance(
+            item.get("category"), str
         ):
             raise ValueError(f"Invalid prompt suite entry at index {index}.")
-        prompts.append(
-            {"category": item["category"], "prompt": item["prompt"]}
+        prompt = item.get("prompt")
+        target_tokens = item.get("target_prompt_tokens")
+        simple = isinstance(prompt, str) and bool(prompt)
+        long_context = (
+            isinstance(target_tokens, int)
+            and not isinstance(target_tokens, bool)
+            and target_tokens > 0
+            and all(
+                isinstance(item.get(key), str) and bool(item[key])
+                for key in ("prompt_prefix", "prompt_filler", "prompt_suffix")
+            )
         )
+        if simple == long_context:
+            raise ValueError(
+                f"Prompt suite entry {index} must define exactly one prompt "
+                "form."
+            )
+        expected_terms = item.get("expected_terms", [])
+        if (
+            not isinstance(expected_terms, list)
+            or any(
+                not isinstance(term, str) or not term
+                for term in expected_terms
+            )
+        ):
+            raise ValueError(
+                f"Prompt suite entry {index} has invalid expected_terms."
+            )
+        prompts.append(dict(item))
     return prompts
+
+
+def _build_prompt(
+    entry: dict[str, object],
+    *,
+    tokenizer,
+    context_length: int,
+) -> tuple[str, list[int]]:
+    prompt = entry.get("prompt")
+    if isinstance(prompt, str):
+        return prompt, tokenizer.encode(
+            prompt,
+            add_special_tokens=False,
+        ).ids
+
+    target_tokens = int(entry["target_prompt_tokens"])
+    if target_tokens >= context_length:
+        raise ValueError(
+            f"Long-context target {target_tokens} must be below model "
+            f"context length {context_length}."
+        )
+    prefix_ids = tokenizer.encode(
+        str(entry["prompt_prefix"]),
+        add_special_tokens=False,
+    ).ids
+    filler_ids = tokenizer.encode(
+        str(entry["prompt_filler"]),
+        add_special_tokens=False,
+    ).ids
+    suffix_ids = tokenizer.encode(
+        str(entry["prompt_suffix"]),
+        add_special_tokens=False,
+    ).ids
+    fixed_length = len(prefix_ids) + len(suffix_ids)
+    if not filler_ids:
+        raise ValueError("Long-context filler must produce at least one token.")
+    if fixed_length > target_tokens:
+        raise ValueError(
+            "Long-context prefix and suffix exceed target_prompt_tokens."
+        )
+    filler_length = target_tokens - fixed_length
+    repeated_filler = (
+        filler_ids * (filler_length // len(filler_ids) + 1)
+    )[:filler_length]
+    prompt_ids = prefix_ids + repeated_filler + suffix_ids
+    if len(prompt_ids) != target_tokens:
+        raise RuntimeError("Long-context prompt token accounting mismatch.")
+    return tokenizer.decode(prompt_ids), prompt_ids
 
 
 def _reference_text(path: Path, maximum_documents: int) -> str:
@@ -202,10 +273,12 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
     )
     samples: list[dict[str, object]] = []
     for prompt_entry in _read_prompts(arguments.prompts):
-        prompt_ids = tokenizer.encode(
-            prompt_entry["prompt"],
-            add_special_tokens=False,
-        ).ids or [bos_token_id]
+        prompt, prompt_ids = _build_prompt(
+            prompt_entry,
+            tokenizer=tokenizer,
+            context_length=model_config.context_length,
+        )
+        prompt_ids = prompt_ids or [bos_token_id]
         generated = generate_token_ids(
             model,
             torch.tensor([prompt_ids], dtype=torch.long, device=device),
@@ -213,16 +286,31 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             config=generation_config,
         )[0].tolist()
         text = tokenizer.decode(generated, skip_special_tokens=True)
+        continuation = tokenizer.decode(
+            generated[len(prompt_ids) :],
+            skip_special_tokens=True,
+        )
+        expected_terms = [
+            str(term) for term in prompt_entry.get("expected_terms", [])
+        ]
         sample: dict[str, object] = {
-            **prompt_entry,
+            "category": prompt_entry["category"],
+            "prompt": prompt,
+            "prompt_token_count": len(prompt_ids),
             "text": text,
+            "continuation": continuation,
             "generated_token_count": len(generated) - len(prompt_ids),
-            "quality": analyze_generated_text(text).to_dict(),
+            "expected_terms": expected_terms,
+            "expected_term_matches": {
+                term: term.casefold() in continuation.casefold()
+                for term in expected_terms
+            },
+            "quality": analyze_generated_text(continuation).to_dict(),
             "reference_eight_gram_overlap": (
                 None
                 if reference_text is None
                 else ngram_overlap_rate(
-                    text,
+                    continuation,
                     reference_text,
                     ngram_size=8,
                 )
