@@ -20,6 +20,7 @@ def _report(path: Path, *, step: int, loss: float, repetition: float) -> None:
                 "samples": [
                     {
                         "category": "coherence",
+                        "expected_term_matches": {"answer": step == 200},
                         "quality": {
                             "repeated_four_gram_rate": repetition,
                             "malformed_character_count": 0,
@@ -62,6 +63,12 @@ def main() -> None:
         saved = json.loads(output.read_text(encoding="utf-8"))
         assert saved["candidates"][0]["checkpoint_optimizer_step"] == 200
         assert saved["candidates"][1]["checkpoint_optimizer_step"] == 100
+        assert (
+            saved["candidates"][0]["category_metrics"]["coherence"][
+                "expected_term_match_rate"
+            ]
+            == 1.0
+        )
         _raises(
             FileExistsError,
             lambda: run(
