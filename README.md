@@ -112,6 +112,8 @@ The 250M configurations are:
 
 - `configs/250m_prototype.yaml`: verified 50M-token experiment.
 - `configs/250m_intermediate.yaml`: 500M-token intermediate run.
+- `configs/250m_full.yaml`: 3,000,041,472-token full run
+  (45,777 optimizer steps).
 - `configs/250m.yaml`: long-run architecture and baseline training settings.
 
 Checkpoints contain model, optimizer, scheduler, RNG, configuration, and
@@ -196,6 +198,22 @@ context retention, and memorization probes.
   --output logs/RUN_NAME/evaluation.json \
   --overwrite
 ```
+
+Compare two or more reports with the fixed selection rule:
+
+```bash
+.venv/bin/python -m scripts.compare_evaluations \
+  logs/prototype/evaluation.json \
+  logs/intermediate/evaluation.json \
+  logs/final/evaluation.json \
+  --output logs/evaluation_comparison.json \
+  --overwrite
+```
+
+Candidates are ranked by validation loss, repeated four-gram rate, malformed
+characters, and then optimizer step. The comparison preserves per-category
+metrics so the selected checkpoint can still be reviewed for regressions that
+an aggregate rank would hide.
 
 ## Optional instruction tuning
 
