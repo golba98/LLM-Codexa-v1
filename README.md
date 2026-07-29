@@ -124,7 +124,7 @@ TinyStories experiment remains reproducible:
   --output-dir data/tokenized/fineweb-edu \
   --model-vocab-size 8192 \
   --context-length 2048 \
-  --encoding-batch-size 256
+  --encoding-batch-size 128
 ```
 
 ## Training
@@ -151,6 +151,9 @@ The 250M configurations are:
 - `configs/250m_full.yaml`: 3,000,041,472-token full run
   (45,777 optimizer steps).
 - `configs/250m.yaml`: long-run architecture and baseline training settings.
+
+The frozen production inputs, exact token counts, storage projection, and
+strict preflight command are documented in `documentation/FULL_RUN.md`.
 
 Checkpoints contain model, optimizer, scheduler, RNG, configuration, and
 training state. Resume only trusted local checkpoints:
