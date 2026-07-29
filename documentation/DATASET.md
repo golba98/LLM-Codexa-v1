@@ -51,9 +51,30 @@ roadmap's 3B–5B Codexa-token target.
 The initial sizing sample encoded 10,000 cleaned documents from shard 0 into
 15,362,976 stored tokens (including one EOS per document), or 3.0815
 characters per content token. With 726,000 rows in that shard, four shards
-project near 4.5B tokens before exact cross-shard deduplication. Four is the
-provisional selection; the dataset is not frozen until full preparation and
-tokenization produce an exact count within 3B–5B.
+project near 4.5B tokens before exact cross-shard deduplication.
+
+The four-shard candidate was downloaded and prepared from these exact upstream
+files:
+
+| Shard | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `000_00000.parquet` | 2,152,819,114 | `b1ba7b2ce4cb5ea6ef42dca40263eabb85f37700d01693a68e9b30a31d78e871` |
+| `001_00000.parquet` | 2,152,222,432 | `3fcf2dc69cd52503986276d3d2d26a8c356d0f2ea28a0de4fdbda8cf87755693` |
+| `002_00000.parquet` | 2,151,796,315 | `547ae182d132c9f06b6ce63149567208ea9f57630bfd9b1a2938e504f0c9ebd7` |
+| `003_00000.parquet` | 2,152,437,524 | `22184e6eb25759ddd97783751ffc73e1705dfa2542e630dae1f2a8bac8ee6ddb` |
+
+Preparation read 2,916,000 raw rows, retained 2,882,129 clean unique
+documents, and removed 33,871 exact duplicates. The seed-42 split contains
+2,867,754 training and 14,375 validation documents (0.5% validation), with
+13,677,423,520 total characters. The clean output checksums are:
+
+- Train:
+  `fcd049d7a744b3e3c32186a10fd97a59b304c1edd801c4bb471c22b9dd5d5e37`
+- Validation:
+  `b39bb8803ac9f32fd03907f33b9cf66336a9aa6b55c4d6419f71f83fdc9fcd7a`
+
+The dataset is not frozen until the newly trained broad-corpus tokenizer and
+binary tokenization confirm an exact 3B–5B-token count.
 
 FineWeb-Edu broadens subject coverage, but web filtering is imperfect. It can
 contain factual errors, bias, personally identifying text, unsafe material,
