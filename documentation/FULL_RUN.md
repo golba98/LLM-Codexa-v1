@@ -49,6 +49,7 @@ The first real-input preflight was recorded at
 
 - NVIDIA GeForce RTX 4080 and CUDA available
 - CUDA BF16 supported
+- isolated BF16 forward/backward passed at sequence length 512
 - GPU temperature 65 C, below the configured 70 C maximum
 - production token manifest and binaries valid
 - 438 GiB available on the checkpoint filesystem
@@ -59,11 +60,10 @@ The run remains intentionally gated on:
 
 - selecting and verifying an independently mounted backup destination;
 - explicit confirmation of stable mains or UPS power, because this desktop
-  exposes no Mains/UPS state through `/sys/class/power_supply`;
-- the final isolated BF16 forward/backward preflight after the intermediate
-  GPU run releases the device.
+  exposes no Mains/UPS state through `/sys/class/power_supply`.
 
-The full run must not start until every preflight check reports `pass`.
+The full run must not start until a final combined preflight reruns the model
+smoke and every check reports `pass`.
 
 ## Reproducible preflight
 
