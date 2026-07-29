@@ -313,7 +313,7 @@ def build_token_data(
     model_vocab_size: int,
     context_length: int,
     stride: int | None = None,
-    encoding_batch_size: int = 256,
+    encoding_batch_size: int = 16,
     overwrite: bool = False,
 ) -> TokenDataBuildResult:
     """Tokenize clean splits into atomic memory-mappable binary arrays."""

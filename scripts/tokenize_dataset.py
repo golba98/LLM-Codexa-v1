@@ -28,7 +28,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-vocab-size", type=int, default=8192)
     parser.add_argument("--context-length", type=int, default=256)
     parser.add_argument("--stride", type=int)
-    parser.add_argument("--encoding-batch-size", type=int, default=256)
+    parser.add_argument("--encoding-batch-size", type=int, default=16)
     parser.add_argument("--overwrite", action="store_true")
     return parser
 
