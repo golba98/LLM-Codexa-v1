@@ -73,8 +73,17 @@ documents, and removed 33,871 exact duplicates. The seed-42 split contains
 - Validation:
   `b39bb8803ac9f32fd03907f33b9cf66336a9aa6b55c4d6419f71f83fdc9fcd7a`
 
-The dataset is not frozen until the newly trained broad-corpus tokenizer and
-binary tokenization confirm an exact 3B–5B-token count.
+The broad-corpus tokenizer inspection covered all 2,882,129 documents and
+measured 3,511,159,117 content tokens with zero unknown tokens. Adding one EOS
+per document gives an exact projected stored total of 3,514,041,246 tokens,
+inside the roadmap's 3B–5B target. The tokenizer vocabulary is 8,192 and its
+SHA-256 is:
+
+`6b26d3c98d8782298119875c368a69fdccbff03cca6fbfa1fc0851b0f3f8ef0c`
+
+The cleaned JSONL inputs and tokenizer are frozen. Final per-split token
+counts and binary checksums are recorded after the atomic token-data build
+completes.
 
 FineWeb-Edu broadens subject coverage, but web filtering is imperfect. It can
 contain factual errors, bias, personally identifying text, unsafe material,
