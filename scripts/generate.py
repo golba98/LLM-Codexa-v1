@@ -125,6 +125,8 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             "source_checkpoint_optimizer_step"
         )
         checkpoint_run_id = release.manifest.get("source_checkpoint_run_id")
+        training_stage = release.manifest.get("training_stage", "pretraining")
+        chat_template_version = release.manifest.get("chat_template_version")
     else:
         if arguments.checkpoint is None:
             raise ValueError("--checkpoint is required.")
@@ -147,6 +149,8 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             raise ValueError("Tokenizer checksum does not match the checkpoint.")
         checkpoint_step = checkpoint.training_state.optimizer_step
         checkpoint_run_id = checkpoint.run_id
+        training_stage = checkpoint.training_stage
+        chat_template_version = checkpoint.chat_template_version
     eos_token_id = tokenizer.token_to_id(EOS_TOKEN)
     bos_token_id = tokenizer.token_to_id(BOS_TOKEN)
     if eos_token_id != 2 or bos_token_id != 1:
@@ -188,6 +192,8 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         ),
         "checkpoint_run_id": checkpoint_run_id,
         "checkpoint_optimizer_step": checkpoint_step,
+        "training_stage": training_stage,
+        "chat_template_version": chat_template_version,
         "tokenizer": str(tokenizer_path),
         "tokenizer_sha256": tokenizer_checksum,
         "device": str(device),

@@ -278,6 +278,7 @@ def test_checkpoint_cli_generation() -> None:
         assert release_output["checkpoint_run_id"] == "generation-run-id"
         assert release_output["release_directory"] == str(release_directory)
         assert release_output["checkpoint"] is None
+        assert release_output["training_stage"] == "pretraining"
         instruction_output = run(
             build_argument_parser().parse_args(
                 [
