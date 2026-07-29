@@ -12,160 +12,160 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 0 — Project Setup
 
-- [ ] Confirm project folder is correct
-- [ ] Create Python virtual environment
-- [ ] Activate `.venv`
-- [ ] Upgrade `pip`
-- [ ] Install PyTorch
-- [ ] Install project dependencies
-- [ ] Confirm PyTorch imports successfully
-- [ ] Confirm CUDA is available
-- [ ] Confirm RTX 4080 is detected
-- [ ] Confirm approximately 16 GB VRAM is visible
-- [ ] Create initial project folders
-- [ ] Create `src/__init__.py`
-- [ ] Create `tests/__init__.py`
-- [ ] Create `.gitignore`
-- [ ] Save dependencies to `requirements.txt`
-- [ ] Initialize Git repository
-- [ ] Create first Git commit
+- [x] Confirm project folder is correct
+- [x] Create Python virtual environment
+- [x] Activate `.venv`
+- [x] Upgrade `pip`
+- [x] Install PyTorch
+- [x] Install project dependencies
+- [x] Confirm PyTorch imports successfully
+- [x] Confirm CUDA is available
+- [x] Confirm RTX 4080 is detected
+- [x] Confirm approximately 16 GB VRAM is visible
+- [x] Create initial project folders
+- [x] Create `src/__init__.py`
+- [x] Create `tests/__init__.py`
+- [x] Create `.gitignore`
+- [x] Save dependencies to `requirements.txt`
+- [x] Initialize Git repository
+- [x] Create first Git commit
 
 ### Phase 0 completion criteria
 
-- [ ] `python` runs from `.venv`
-- [ ] `torch.cuda.is_available()` returns `True`
-- [ ] RTX 4080 appears as the active GPU
-- [ ] Project structure exists and imports work
+- [x] `python` runs from `.venv`
+- [x] `torch.cuda.is_available()` returns `True`
+- [x] RTX 4080 appears as the active GPU
+- [x] Project structure exists and imports work
 
 ---
 
 ## Phase 1 — Small Transformer Model
 
-- [ ] Create `src/model.py`
-- [ ] Add `ModelConfig`
-- [ ] Add RMSNorm
-- [ ] Add causal self-attention
-- [ ] Add feed-forward network
-- [ ] Add Transformer block
-- [ ] Add token embeddings
-- [ ] Add position embeddings
-- [ ] Add final normalization
-- [ ] Add output projection
-- [ ] Add optional weight tying
-- [ ] Add parameter-counting function
-- [ ] Add input validation
-- [ ] Add sequence-length validation
-- [ ] Add model initialization
-- [ ] Add causal language-model loss
+- [x] Create `src/model.py`
+- [x] Add `ModelConfig`
+- [x] Add RMSNorm
+- [x] Add causal self-attention
+- [x] Add feed-forward network
+- [x] Add Transformer block
+- [x] Add token embeddings
+- [x] Add position embeddings
+- [x] Add final normalization
+- [x] Add output projection
+- [x] Add optional weight tying
+- [x] Add parameter-counting function
+- [x] Add input validation
+- [x] Add sequence-length validation
+- [x] Add model initialization
+- [x] Add causal language-model loss
 
 ### Phase 1 completion criteria
 
-- [ ] Model imports without errors
-- [ ] Forward pass returns logits
-- [ ] Loss is finite
-- [ ] Output dimensions are correct
-- [ ] Parameter count is printed correctly
+- [x] Model imports without errors
+- [x] Forward pass returns logits
+- [x] Loss is finite
+- [x] Output dimensions are correct
+- [x] Parameter count is printed correctly
 
 ---
 
 ## Phase 2 — Model Tests
 
-- [ ] Create `tests/test_model.py`
-- [ ] Test model construction
-- [ ] Test valid input shape
-- [ ] Test logits shape
-- [ ] Test finite loss
-- [ ] Test context-length error
-- [ ] Test invalid head configuration
-- [ ] Test CPU forward pass
-- [ ] Test GPU forward pass
-- [ ] Test BF16 forward pass
-- [ ] Test parameter count
-- [ ] Run all tests successfully
+- [x] Create `tests/test_model.py`
+- [x] Test model construction
+- [x] Test valid input shape
+- [x] Test logits shape
+- [x] Test finite loss
+- [x] Test context-length error
+- [x] Test invalid head configuration
+- [x] Test CPU forward pass
+- [x] Test GPU forward pass
+- [x] Test BF16 forward pass
+- [x] Test parameter count
+- [x] Run all tests successfully
 
 ### Phase 2 completion criteria
 
-- [ ] `python -m tests.test_model` passes
-- [ ] Model runs on the RTX 4080
-- [ ] No NaN or Inf values appear
-- [ ] Initial loss is close to `ln(vocab_size)`
+- [x] `python -m tests.test_model` passes
+- [x] Model runs on the RTX 4080
+- [x] No NaN or Inf values appear
+- [x] Initial loss is close to `ln(vocab_size)`
 
 ---
 
 ## Phase 3 — Configuration System
 
-- [ ] Create `configs/smoke.yaml`
-- [ ] Create `configs/prototype.yaml`
-- [ ] Create `configs/250m.yaml`
-- [ ] Add YAML config loader
-- [ ] Validate required config fields
-- [ ] Validate model dimensions
-- [ ] Validate training settings
-- [ ] Print resolved configuration before training
-- [ ] Save a copy of the config with each checkpoint
+- [x] Create `configs/smoke.yaml`
+- [x] Create `configs/prototype.yaml`
+- [x] Create `configs/250m.yaml`
+- [x] Add YAML config loader
+- [x] Validate required config fields
+- [x] Validate model dimensions
+- [x] Validate training settings
+- [x] Print resolved configuration before training
+- [x] Save a copy of the config with each checkpoint
 
 ### Phase 3 completion criteria
 
-- [ ] Model can be created entirely from YAML
-- [ ] Invalid configurations fail with clear errors
-- [ ] Every run records its exact configuration
+- [x] Model can be created entirely from YAML
+- [x] Invalid configurations fail with clear errors
+- [x] Every run records its exact configuration
 
 ---
 
 ## Phase 4 — Dataset Preparation
 
-- [ ] Decide the first small text dataset
-- [ ] Create `data/raw/`
-- [ ] Add sample training text
-- [ ] Add sample validation text
-- [ ] Create data-cleaning script
-- [ ] Normalize Unicode
-- [ ] Remove broken or empty documents
-- [ ] Remove duplicate documents
-- [ ] Record dataset source and license
-- [ ] Split data into train and validation sets
-- [ ] Add dataset statistics
-- [ ] Count characters
-- [ ] Count documents
-- [ ] Estimate token count
-- [ ] Save cleaned data to `data/processed/`
+- [x] Decide the first small text dataset
+- [x] Create `data/raw/`
+- [x] Add sample training text
+- [x] Add sample validation text
+- [x] Create data-cleaning script
+- [x] Normalize Unicode
+- [x] Remove broken or empty documents
+- [x] Remove duplicate documents
+- [x] Record dataset source and license
+- [x] Split data into train and validation sets
+- [x] Add dataset statistics
+- [x] Count characters
+- [x] Count documents
+- [x] Estimate token count
+- [x] Save cleaned data to `data/processed/`
 
 ### Phase 4 completion criteria
 
-- [ ] Training and validation files exist
-- [ ] Data can be reproduced from scripts
-- [ ] Sources and licenses are documented
-- [ ] Dataset statistics are saved
+- [x] Training and validation files exist
+- [x] Data can be reproduced from scripts
+- [x] Sources and licenses are documented
+- [x] Dataset statistics are saved
 
 ---
 
 ## Phase 5 — Tokenizer
 
-- [ ] Choose BPE or Unigram tokenizer
-- [ ] Create tokenizer training script
-- [ ] Train tokenizer on representative data
-- [ ] Add `<pad>`
-- [ ] Add `<bos>`
-- [ ] Add `<eos>`
-- [ ] Add `<unk>`
-- [ ] Set tokenizer vocabulary size
-- [ ] Save tokenizer files
-- [ ] Test encode
-- [ ] Test decode
-- [ ] Test Unicode text
-- [ ] Test punctuation
-- [ ] Test numbers
-- [ ] Test code snippets
-- [ ] Test special token IDs
-- [ ] Measure average characters per token
-- [ ] Measure unknown-token rate
+- [x] Choose BPE or Unigram tokenizer
+- [x] Create tokenizer training script
+- [x] Train tokenizer on representative data
+- [x] Add `<pad>`
+- [x] Add `<bos>`
+- [x] Add `<eos>`
+- [x] Add `<unk>`
+- [x] Set tokenizer vocabulary size
+- [x] Save tokenizer files
+- [x] Test encode
+- [x] Test decode
+- [x] Test Unicode text
+- [x] Test punctuation
+- [x] Test numbers
+- [x] Test code snippets
+- [x] Test special token IDs
+- [x] Measure average characters per token
+- [x] Measure unknown-token rate
 
 ### Phase 5 completion criteria
 
-- [ ] Encoding and decoding work correctly
-- [ ] Special token IDs are stable
-- [ ] Tokenizer handles normal text and code
-- [ ] Tokenizer files can be reloaded
+- [x] Encoding and decoding work correctly
+- [x] Special token IDs are stable
+- [x] Tokenizer handles normal text and code
+- [x] Tokenizer files can be reloaded
 
 ---
 
@@ -228,31 +228,31 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 8 — Checkpointing and Resume
 
-- [ ] Create checkpoint save function
-- [ ] Save model state
-- [ ] Save optimizer state
-- [ ] Save scheduler state
-- [ ] Save training step
-- [ ] Save token count
-- [ ] Save random-number states
-- [ ] Save configuration
-- [ ] Save tokenizer reference
-- [ ] Create checkpoint load function
-- [ ] Add `--resume` support
-- [ ] Keep latest checkpoint
-- [ ] Keep best validation checkpoint
-- [ ] Keep previous known-good checkpoint
-- [ ] Add periodic milestone checkpoints
-- [ ] Test interrupted training
-- [ ] Test resumed training
-- [ ] Verify resumed loss is consistent
+- [x] Create checkpoint save function
+- [x] Save model state
+- [x] Save optimizer state
+- [x] Save scheduler state
+- [x] Save training step
+- [x] Save token count
+- [x] Save random-number states
+- [x] Save configuration
+- [x] Save tokenizer reference
+- [x] Create checkpoint load function
+- [x] Add `--resume` support
+- [x] Keep latest checkpoint
+- [x] Keep best validation checkpoint
+- [x] Keep previous known-good checkpoint
+- [x] Add periodic milestone checkpoints
+- [x] Test interrupted training
+- [x] Test resumed training
+- [x] Verify resumed loss is consistent
 
 ### Phase 8 completion criteria
 
-- [ ] Training resumes from the correct step
-- [ ] Optimizer and scheduler resume correctly
-- [ ] No checkpoint corruption occurs
-- [ ] At least two backup checkpoints exist
+- [x] Training resumes from the correct step
+- [x] Optimizer and scheduler resume correctly
+- [x] No checkpoint corruption occurs
+- [x] At least two backup checkpoints exist
 
 ---
 
@@ -330,26 +330,26 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 12 — Design the 250M Architecture
 
-- [ ] Choose final vocabulary size
-- [ ] Choose hidden size
-- [ ] Choose number of layers
-- [ ] Choose number of attention heads
-- [ ] Choose intermediate size
-- [ ] Choose context length
-- [ ] Decide position encoding
-- [ ] Decide whether to tie embeddings
-- [ ] Calculate exact parameter count
-- [ ] Adjust architecture toward 250M
-- [ ] Estimate optimizer memory
-- [ ] Estimate activation memory
+- [x] Choose final vocabulary size
+- [x] Choose hidden size
+- [x] Choose number of layers
+- [x] Choose number of attention heads
+- [x] Choose intermediate size
+- [x] Choose context length
+- [x] Decide position encoding
+- [x] Decide whether to tie embeddings
+- [x] Calculate exact parameter count
+- [x] Adjust architecture toward 250M
+- [x] Estimate optimizer memory
+- [x] Estimate activation memory
 - [ ] Confirm model fits in 16 GB VRAM
-- [ ] Document final architecture
+- [x] Document final architecture
 
 ### Phase 12 completion criteria
 
-- [ ] Exact parameter count is near 250M
+- [x] Exact parameter count is near 250M
 - [ ] Architecture fits on the RTX 4080
-- [ ] Configuration is saved in `configs/250m.yaml`
+- [x] Configuration is saved in `configs/250m.yaml`
 
 ---
 
@@ -545,15 +545,15 @@ Use this checklist to track progress from environment setup through full trainin
 
 Update this section as work continues.
 
-- [ ] Phase 0 — Project Setup
-- [ ] Phase 1 — Small Transformer Model
-- [ ] Phase 2 — Model Tests
-- [ ] Phase 3 — Configuration System
-- [ ] Phase 4 — Dataset Preparation
-- [ ] Phase 5 — Tokenizer
+- [x] Phase 0 — Project Setup
+- [x] Phase 1 — Small Transformer Model
+- [x] Phase 2 — Model Tests
+- [x] Phase 3 — Configuration System
+- [x] Phase 4 — Dataset Preparation
+- [x] Phase 5 — Tokenizer
 - [ ] Phase 6 — Tokenized Dataset Pipeline
 - [ ] Phase 7 — Training Loop
-- [ ] Phase 8 — Checkpointing and Resume
+- [x] Phase 8 — Checkpointing and Resume
 - [ ] Phase 9 — Text Generation
 - [ ] Phase 10 — Tiny Overfit Test
 - [ ] Phase 11 — Smoke Training Run

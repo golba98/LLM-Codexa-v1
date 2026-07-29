@@ -299,6 +299,16 @@ def run(arguments: argparse.Namespace) -> int:
         run_id = loaded.run_id
     start_timestamp = utc_timestamp()
 
+    print(
+        "Resolved configuration: "
+        + json.dumps(
+            {
+                "model": asdict(project_config.model),
+                "training": asdict(training_config),
+            },
+            sort_keys=True,
+        )
+    )
     print(f"Device: {device}")
     print(f"Precision: {precision.name}")
     print(f"Total parameters: {total_parameters:,}")
