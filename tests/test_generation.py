@@ -3,11 +3,13 @@
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 
 import torch
 from torch import nn
 
 from scripts.generate import build_argument_parser, run
+from scripts.export_release import run as export_release
 from src.checkpointing import (
     CheckpointManager,
     SchedulerState,
@@ -242,6 +244,33 @@ def test_checkpoint_cli_generation() -> None:
         assert output_path.is_file()
         saved = json.loads(output_path.read_text(encoding="utf-8"))
         assert saved["generation_config"]["do_sample"] is False
+
+        release_directory = root / "release"
+        export_release(
+            SimpleNamespace(
+                checkpoint=checkpoint,
+                tokenizer=tokenizer_path,
+                output_dir=release_directory,
+            )
+        )
+        release_output = run(
+            build_argument_parser().parse_args(
+                [
+                    "--release-dir",
+                    str(release_directory),
+                    "--prompt",
+                    "Codexa",
+                    "--device",
+                    "cpu",
+                    "--max-new-tokens",
+                    "3",
+                    "--greedy",
+                ]
+            )
+        )
+        assert release_output["checkpoint_run_id"] == "generation-run-id"
+        assert release_output["release_directory"] == str(release_directory)
+        assert release_output["checkpoint"] is None
 
 
 def main() -> None:

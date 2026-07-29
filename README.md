@@ -140,6 +140,19 @@ training state. Resume only trusted local checkpoints:
 No BOS or EOS token is silently added to prompts. Generation stops at EOS or
 the context limit.
 
+After exporting a release directory, generation no longer requires the trusted
+PyTorch training checkpoint:
+
+```bash
+.venv/bin/python -m scripts.generate \
+  --release-dir releases/codexa-v1 \
+  --prompt "Once upon a time" \
+  --device cuda \
+  --max-new-tokens 128
+```
+
+The loader verifies every entry in `SHA256SUMS` before loading safetensors.
+
 ## Evaluation
 
 `configs/evaluation_prompts.json` defines fixed prompts for coherence,

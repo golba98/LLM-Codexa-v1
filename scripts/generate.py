@@ -27,8 +27,10 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate text from a Codexa checkpoint."
     )
-    parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--tokenizer", type=Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--checkpoint", type=Path)
+    source.add_argument("--release-dir", type=Path)
+    parser.add_argument("--tokenizer", type=Path)
     parser.add_argument("--prompt", required=True)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--max-new-tokens", type=int, default=128)
@@ -89,20 +91,45 @@ def _atomic_json_write(path: Path, value: object) -> None:
 
 def run(arguments: argparse.Namespace) -> dict[str, object]:
     device = resolve_device(arguments.device)
-    model_config = _checkpoint_model_config(arguments.checkpoint)
-    model = LanguageModel(model_config).to(device)
-    checkpoint = load_model_checkpoint(
-        arguments.checkpoint,
-        model=model,
-        map_location=device,
-    )
-    tokenizer = load_tokenizer(arguments.tokenizer)
-    tokenizer_checksum = file_sha256(arguments.tokenizer)
-    if (
-        checkpoint.tokenizer_sha256 is not None
-        and checkpoint.tokenizer_sha256 != tokenizer_checksum
-    ):
-        raise ValueError("Tokenizer checksum does not match the checkpoint.")
+    if arguments.release_dir is not None:
+        if arguments.tokenizer is not None:
+            raise ValueError(
+                "--tokenizer must not be supplied with --release-dir."
+            )
+        from src.release import load_release
+
+        release = load_release(arguments.release_dir, device=device)
+        model = release.model
+        tokenizer = release.tokenizer
+        tokenizer_path = release.root / "tokenizer.json"
+        tokenizer_checksum = file_sha256(tokenizer_path)
+        checkpoint = None
+        checkpoint_step = release.manifest.get(
+            "source_checkpoint_optimizer_step"
+        )
+        checkpoint_run_id = release.manifest.get("source_checkpoint_run_id")
+    else:
+        if arguments.checkpoint is None:
+            raise ValueError("--checkpoint is required.")
+        if arguments.tokenizer is None:
+            raise ValueError("--tokenizer is required with --checkpoint.")
+        model_config = _checkpoint_model_config(arguments.checkpoint)
+        model = LanguageModel(model_config).to(device)
+        checkpoint = load_model_checkpoint(
+            arguments.checkpoint,
+            model=model,
+            map_location=device,
+        )
+        tokenizer = load_tokenizer(arguments.tokenizer)
+        tokenizer_path = arguments.tokenizer
+        tokenizer_checksum = file_sha256(tokenizer_path)
+        if (
+            checkpoint.tokenizer_sha256 is not None
+            and checkpoint.tokenizer_sha256 != tokenizer_checksum
+        ):
+            raise ValueError("Tokenizer checksum does not match the checkpoint.")
+        checkpoint_step = checkpoint.training_state.optimizer_step
+        checkpoint_run_id = checkpoint.run_id
     eos_token_id = tokenizer.token_to_id(EOS_TOKEN)
     bos_token_id = tokenizer.token_to_id(BOS_TOKEN)
     if eos_token_id != 2 or bos_token_id != 1:
@@ -132,10 +159,17 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
     continuation_ids = generated[len(prompt_ids) :]
     output = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "checkpoint": str(arguments.checkpoint),
-        "checkpoint_run_id": checkpoint.run_id,
-        "checkpoint_optimizer_step": checkpoint.training_state.optimizer_step,
-        "tokenizer": str(arguments.tokenizer),
+        "checkpoint": (
+            None if arguments.checkpoint is None else str(arguments.checkpoint)
+        ),
+        "release_directory": (
+            None
+            if arguments.release_dir is None
+            else str(arguments.release_dir)
+        ),
+        "checkpoint_run_id": checkpoint_run_id,
+        "checkpoint_optimizer_step": checkpoint_step,
+        "tokenizer": str(tokenizer_path),
         "tokenizer_sha256": tokenizer_checksum,
         "device": str(device),
         "prompt": arguments.prompt,
