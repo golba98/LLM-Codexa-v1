@@ -516,15 +516,15 @@ Use this checklist to track progress from environment setup through full trainin
 ## Phase 19 — Packaging and Release
 
 - [ ] Clean repository
-- [ ] Update README
-- [ ] Add installation instructions
-- [ ] Add training instructions
-- [ ] Add generation instructions
-- [ ] Add architecture documentation
-- [ ] Add dataset documentation
-- [ ] Add tokenizer documentation
-- [ ] Add model limitations
-- [ ] Add license
+- [x] Update README
+- [x] Add installation instructions
+- [x] Add training instructions
+- [x] Add generation instructions
+- [x] Add architecture documentation
+- [x] Add dataset documentation
+- [x] Add tokenizer documentation
+- [x] Add model limitations
+- [x] Add license
 - [ ] Add model card
 - [ ] Export model weights
 - [ ] Export tokenizer

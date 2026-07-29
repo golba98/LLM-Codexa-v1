@@ -88,8 +88,7 @@ Train the 8,192-entry byte-level BPE tokenizer without loading the whole corpus:
   data/processed/tinystories/validation.jsonl \
   --output-dir checkpoints/tokenizer-tinystories \
   --vocab-size 8192 \
-  --streaming \
-  --overwrite
+  --streaming
 ```
 
 Create memory-mapped token streams:
@@ -336,12 +335,15 @@ Generate from an instruction-tuned release with automatic template formatting:
 
 ## Limitations
 
-- TinyStories is a narrow synthetic English story corpus. A model trained only
-  on it is not a general assistant, factual reference, or code model.
+- The Phase 14–15 TinyStories checkpoints are narrow synthetic English story
+  models, not general assistants, factual references, or code models.
+- FineWeb-Edu broadens educational and general web coverage for Phase 16, but
+  the base model is still not instruction-tuned, safety-aligned, or reliable
+  for factual, code, professional, or high-stakes use.
 - Generated text can be incorrect, contradictory, repetitive, biased, or
   inappropriate. It must not be used for high-stakes decisions.
-- The 8,192-token tokenizer was optimized for this corpus and has not been
-  validated for broad multilingual or source-code coverage.
+- The 8,192-token FineWeb-Edu tokenizer has zero unknown tokens on the frozen
+  corpus but is not optimized for broad multilingual or source-code coverage.
 - Exact bitwise reproducibility is not guaranteed across different GPUs,
   drivers, CUDA versions, and PyTorch releases.
 - Checkpoints are loaded through PyTorch serialization and must be treated as
