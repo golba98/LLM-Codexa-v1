@@ -197,6 +197,35 @@ context retention, and memorization probes.
   --overwrite
 ```
 
+## Optional instruction tuning
+
+The base model and instruction model use separate run names and checkpoint
+directories. Download the pinned CC-BY-SA Dolly dataset:
+
+```bash
+.venv/bin/python -m scripts.download_dolly
+```
+
+After selecting the final base checkpoint, run response-masked supervised
+fine-tuning:
+
+```bash
+.venv/bin/python -m scripts.train_sft \
+  --config configs/250m_sft.yaml \
+  --base-checkpoint checkpoints/BASE_RUN/best.pt \
+  --tokenizer checkpoints/FINAL_TOKENIZER/tokenizer.json \
+  --instruction-jsonl \
+    data/raw/databricks-dolly-15k/databricks-dolly-15k.jsonl \
+  --device cuda \
+  --precision bf16 \
+  --run-name codexa-v1-sft \
+  --checkpoint-dir checkpoints \
+  --overwrite-log
+```
+
+See `documentation/CHAT_TEMPLATE.md` for the exact template, target masking,
+truncation behavior, and derivative-license warning.
+
 ## Limitations
 
 - TinyStories is a narrow synthetic English story corpus. A model trained only

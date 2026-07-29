@@ -60,3 +60,24 @@ contain factual errors, bias, personally identifying text, unsafe material,
 copyrighted text, and duplication missed by exact matching. It is not a
 specialized code corpus, so code-completion results must be reported honestly
 rather than treated as a primary capability.
+
+## Databricks Dolly 15k
+
+Optional supervised fine-tuning uses
+[databricks/databricks-dolly-15k](https://huggingface.co/datasets/databricks/databricks-dolly-15k),
+pinned to revision:
+
+`bdd27f4d94b9c1f951818a7da7fd7aeea5dbff1a`
+
+The dataset contains 15,011 human-authored instruction/response records across
+brainstorming, classification, closed and open question answering, creative
+writing, general question answering, information extraction, and
+summarization. It is licensed CC-BY-SA 3.0. The downloaded JSONL checksum is:
+
+`2df9083338b4abd6bceb5635764dab5d833b393b55759dffb0959b6fcbf794ec`
+
+`scripts/download_dolly.py` records the pinned source files, byte sizes,
+license, and SHA-256 checksums. The deterministic seed-42 split contains
+14,221 training and 790 validation records. Dolly's attribution and share-alike
+terms apply to instruction-tuned derivatives; the base pretrained checkpoint
+remains separate.
