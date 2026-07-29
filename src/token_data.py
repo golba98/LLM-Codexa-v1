@@ -142,19 +142,51 @@ def _serialize_json(path: Path, data: object) -> None:
     )
 
 
+def _iter_index_entries(path: Path) -> Iterator[dict[str, object]]:
+    """Read the line-oriented JSON array emitted by the token-data writer."""
+
+    with path.open("r", encoding="utf-8") as index_file:
+        if index_file.readline().strip() != "[":
+            raise ValueError(f"{path}: token index must start with '['.")
+        for line_number, line in enumerate(index_file, start=2):
+            stripped = line.strip()
+            if stripped == "]":
+                return
+            if stripped.endswith(","):
+                stripped = stripped[:-1]
+            try:
+                entry = json.loads(stripped)
+            except json.JSONDecodeError as error:
+                raise ValueError(
+                    f"{path}:{line_number}: malformed index JSON "
+                    f"({error.msg})"
+                ) from error
+            if not isinstance(entry, dict):
+                raise ValueError(
+                    f"{path}:{line_number}: index entry must be an object."
+                )
+            yield entry
+    raise ValueError(f"{path}: token index is missing its closing ']'.")
+
+
 def _tokenize_split(
     *,
     input_path: Path,
     output_path: Path,
+    index_output_path: Path,
     tokenizer: Tokenizer,
     eos_token_id: int,
     model_vocab_size: int,
     dtype: np.dtype,
-) -> tuple[int, list[dict[str, object]]]:
+) -> tuple[int, int]:
     token_count = 0
-    index_entries: list[dict[str, object]] = []
+    document_count = 0
 
-    with output_path.open("wb") as output_file:
+    with (
+        output_path.open("wb") as output_file,
+        index_output_path.open("w", encoding="utf-8") as index_file,
+    ):
+        index_file.write("[\n")
         for ordinal, record in enumerate(_iter_jsonl_records(input_path)):
             text = record["text"]
             assert isinstance(text, str)
@@ -193,7 +225,13 @@ def _tokenize_split(
             document_id = record.get("document_id")
             if document_id is not None:
                 entry["document_id"] = document_id
-            index_entries.append(entry)
+            if document_count:
+                index_file.write(",\n")
+            index_file.write(
+                json.dumps(entry, ensure_ascii=False, sort_keys=True)
+            )
+            document_count += 1
+        index_file.write("\n]\n")
 
     expected_size = token_count * dtype.itemsize
     actual_size = output_path.stat().st_size
@@ -202,7 +240,7 @@ def _tokenize_split(
             f"Incomplete token output {output_path}: expected "
             f"{expected_size} bytes, got {actual_size}."
         )
-    return token_count, index_entries
+    return token_count, document_count
 
 
 def count_packed_examples(
@@ -305,25 +343,24 @@ def build_token_data(
         name: _temporary_path(path) for name, path in final_paths.items()
     }
     try:
-        train_token_count, train_index = _tokenize_split(
+        train_token_count, train_document_count = _tokenize_split(
             input_path=train_input,
             output_path=temporary_paths["train"],
+            index_output_path=temporary_paths["train_index"],
             tokenizer=tokenizer,
             eos_token_id=eos_token_id,
             model_vocab_size=model_vocab_size,
             dtype=dtype,
         )
-        validation_token_count, validation_index = _tokenize_split(
+        validation_token_count, validation_document_count = _tokenize_split(
             input_path=validation_input,
             output_path=temporary_paths["validation"],
+            index_output_path=temporary_paths["validation_index"],
             tokenizer=tokenizer,
             eos_token_id=eos_token_id,
             model_vocab_size=model_vocab_size,
             dtype=dtype,
         )
-        _serialize_json(temporary_paths["train_index"], train_index)
-        _serialize_json(temporary_paths["validation_index"], validation_index)
-
         train_examples, train_trailing = count_packed_examples(
             train_token_count,
             context_length=context_length,
@@ -375,8 +412,8 @@ def build_token_data(
             },
             "train_token_count": train_token_count,
             "validation_token_count": validation_token_count,
-            "train_document_count": len(train_index),
-            "validation_document_count": len(validation_index),
+            "train_document_count": train_document_count,
+            "validation_document_count": validation_document_count,
             "complete_sequences": {
                 "train": train_examples,
                 "validation": validation_examples,
@@ -411,8 +448,8 @@ def build_token_data(
         manifest_path=final_paths["manifest"],
         train_token_count=train_token_count,
         validation_token_count=validation_token_count,
-        train_document_count=len(train_index),
-        validation_document_count=len(validation_index),
+        train_document_count=train_document_count,
+        validation_document_count=validation_document_count,
         dtype=dtype.name,
     )
 
@@ -594,9 +631,11 @@ def inspect_token_data(manifest_path: str | Path) -> dict[str, object]:
         if file_size % dtype.itemsize != 0:
             raise ValueError(f"{split_name} token file has a partial element.")
         tokens = np.memmap(token_path, mode="r", dtype=dtype)
-        index_entries = json.loads(index_path.read_text(encoding="utf-8"))
         expected_start = 0
-        for expected_ordinal, entry in enumerate(index_entries):
+        document_count = 0
+        for expected_ordinal, entry in enumerate(
+            _iter_index_entries(index_path)
+        ):
             if entry["document_ordinal"] != expected_ordinal:
                 raise ValueError(f"{split_name} document ordinal mismatch.")
             if entry["token_start"] != expected_start:
@@ -614,12 +653,13 @@ def inspect_token_data(manifest_path: str | Path) -> dict[str, object]:
             if int(tokens[entry["eos_token_position"]]) != eos_token_id:
                 raise ValueError(f"{split_name} EOS token value is invalid.")
             expected_start = entry["token_end"]
+            document_count += 1
         if expected_start != len(tokens):
             raise ValueError(f"{split_name} index does not cover all tokens.")
 
         split_summaries[split_name] = {
+            "document_count": document_count,
             "token_count": len(tokens),
-            "document_count": len(index_entries),
             "byte_size": file_size,
             "sha256": checksums[split_name],
         }

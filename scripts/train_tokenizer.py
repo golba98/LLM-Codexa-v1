@@ -8,7 +8,7 @@ import sys
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.tokenizer import train_tokenizer
+from src.tokenizer import train_tokenizer, train_tokenizer_streaming
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -26,6 +26,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--vocab-size", type=int, default=8192)
     parser.add_argument("--min-frequency", type=int, default=2)
+    parser.add_argument(
+        "--streaming",
+        action="store_true",
+        help="Stream JSONL documents instead of retaining the corpus.",
+    )
     return parser
 
 
@@ -35,7 +40,12 @@ def main() -> None:
     parser = build_argument_parser()
     arguments = parser.parse_args()
     try:
-        result = train_tokenizer(
+        trainer = (
+            train_tokenizer_streaming
+            if arguments.streaming
+            else train_tokenizer
+        )
+        result = trainer(
             arguments.inputs,
             output_dir=arguments.output_dir,
             vocab_size=arguments.vocab_size,

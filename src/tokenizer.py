@@ -3,6 +3,7 @@
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
+import json
 from pathlib import Path
 from collections.abc import Iterable, Sequence
 
@@ -208,6 +209,139 @@ def train_tokenizer(
         .replace("+00:00", "Z"),
         "format_version": TOKENIZER_FORMAT_VERSION,
         "tokenizers_version": tokenizers.__version__,
+        "input_paths": [str(path.resolve()) for path in normalized_paths],
+        "input_sha256": {
+            str(path.resolve()): _file_sha256(path) for path in normalized_paths
+        },
+        "model_type": "BPE",
+        "pre_tokenizer": "ByteLevel",
+        "decoder": "ByteLevel",
+        "add_prefix_space": False,
+        "automatic_bos_eos": False,
+        "requested_vocab_size": vocab_size,
+        "actual_vocab_size": actual_vocab_size,
+        "min_frequency": min_frequency,
+        "special_tokens": {
+            token: tokenizer.token_to_id(token) for token in SPECIAL_TOKENS
+        },
+        "inspection": inspection.to_dict(),
+        "tokenizer_path": str(tokenizer_path.resolve()),
+        "tokenizer_sha256": _file_sha256(tokenizer_path),
+    }
+    write_json(manifest_path, manifest)
+    return TokenizerTrainingResult(
+        tokenizer_path=tokenizer_path,
+        manifest_path=manifest_path,
+        requested_vocab_size=vocab_size,
+        actual_vocab_size=actual_vocab_size,
+        inspection=inspection,
+    )
+
+
+def iter_jsonl_texts(input_paths: Sequence[str | Path]) -> Iterable[str]:
+    """Yield validated text fields from JSONL files without retaining them."""
+
+    normalized_paths = [Path(path) for path in input_paths]
+    if not normalized_paths:
+        raise ValueError("At least one tokenizer input path is required.")
+    for path in normalized_paths:
+        with path.open("r", encoding="utf-8") as input_file:
+            for line_number, line in enumerate(input_file, start=1):
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as error:
+                    raise ValueError(
+                        f"{path}:{line_number}: malformed JSON ({error.msg})"
+                    ) from error
+                if not isinstance(record, dict):
+                    raise ValueError(
+                        f"{path}:{line_number}: JSONL row must be an object"
+                    )
+                text = record.get("text")
+                if not isinstance(text, str) or not text:
+                    raise ValueError(
+                        f"{path}:{line_number}: text must be a non-empty string"
+                    )
+                yield text
+
+
+def inspect_tokenizer_streaming(
+    tokenizer: Tokenizer,
+    input_paths: Sequence[str | Path],
+) -> TokenizerInspection:
+    """Inspect a tokenizer over JSONL inputs with constant document memory."""
+
+    unknown_id = tokenizer.token_to_id(UNK_TOKEN)
+    if unknown_id is None:
+        raise ValueError("Tokenizer does not contain the required <unk> token.")
+    document_count = 0
+    total_characters = 0
+    total_utf8_bytes = 0
+    total_tokens = 0
+    unknown_token_count = 0
+    for text in iter_jsonl_texts(input_paths):
+        token_ids = tokenizer.encode(text, add_special_tokens=False).ids
+        document_count += 1
+        total_characters += len(text)
+        total_utf8_bytes += len(text.encode("utf-8"))
+        total_tokens += len(token_ids)
+        unknown_token_count += token_ids.count(unknown_id)
+    return TokenizerInspection(
+        document_count=document_count,
+        total_characters=total_characters,
+        total_utf8_bytes=total_utf8_bytes,
+        total_tokens=total_tokens,
+        unknown_token_count=unknown_token_count,
+        unknown_token_rate=(
+            unknown_token_count / total_tokens if total_tokens else 0.0
+        ),
+        average_characters_per_token=(
+            total_characters / total_tokens if total_tokens else 0.0
+        ),
+    )
+
+
+def train_tokenizer_streaming(
+    input_paths: Sequence[str | Path],
+    *,
+    output_dir: str | Path,
+    vocab_size: int = 8192,
+    min_frequency: int = 2,
+) -> TokenizerTrainingResult:
+    """Train byte-level BPE from JSONL with constant document memory."""
+
+    _validate_training_settings(vocab_size, min_frequency)
+    normalized_paths = [Path(path) for path in input_paths]
+    tokenizer = Tokenizer(BPE(unk_token=UNK_TOKEN))
+    tokenizer.pre_tokenizer = ByteLevel(add_prefix_space=False, use_regex=True)
+    tokenizer.decoder = ByteLevelDecoder()
+    trainer = BpeTrainer(
+        vocab_size=vocab_size,
+        min_frequency=min_frequency,
+        special_tokens=list(SPECIAL_TOKENS),
+        initial_alphabet=ByteLevel.alphabet(),
+        show_progress=True,
+    )
+    tokenizer.train_from_iterator(
+        iter_jsonl_texts(normalized_paths),
+        trainer=trainer,
+    )
+    validate_tokenizer(tokenizer)
+
+    destination = Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    tokenizer_path = destination / "tokenizer.json"
+    manifest_path = destination / "tokenizer_manifest.json"
+    tokenizer.save(str(tokenizer_path), pretty=True)
+    inspection = inspect_tokenizer_streaming(tokenizer, normalized_paths)
+    actual_vocab_size = tokenizer.get_vocab_size(with_added_tokens=True)
+    manifest = {
+        "created_at_utc": datetime.now(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "format_version": TOKENIZER_FORMAT_VERSION,
+        "tokenizers_version": tokenizers.__version__,
+        "streaming": True,
         "input_paths": [str(path.resolve()) for path in normalized_paths],
         "input_sha256": {
             str(path.resolve()): _file_sha256(path) for path in normalized_paths

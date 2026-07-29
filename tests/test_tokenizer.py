@@ -16,8 +16,10 @@ from src.tokenizer import (
     SPECIAL_TOKENS,
     UNK_TOKEN,
     inspect_tokenizer,
+    inspect_tokenizer_streaming,
     load_tokenizer,
     train_tokenizer,
+    train_tokenizer_streaming,
 )
 
 
@@ -83,11 +85,18 @@ def test_training_and_round_trip() -> tuple[int, float, str]:
             vocab_size=TEST_VOCAB_SIZE,
             min_frequency=1,
         )
+        streaming_result = train_tokenizer_streaming(
+            input_paths,
+            output_dir=temporary_dir / "tokenizer-streaming",
+            vocab_size=TEST_VOCAB_SIZE,
+            min_frequency=1,
+        )
 
         assert first_result.actual_vocab_size == TEST_VOCAB_SIZE
         assert second_result.actual_vocab_size == TEST_VOCAB_SIZE
         first_checksum = file_sha256(first_result.tokenizer_path)
         assert first_checksum == file_sha256(second_result.tokenizer_path)
+        assert first_checksum == file_sha256(streaming_result.tokenizer_path)
 
         tokenizer = load_tokenizer(first_result.tokenizer_path)
         assert tokenizer.get_vocab_size(with_added_tokens=True) == TEST_VOCAB_SIZE
@@ -119,6 +128,12 @@ def test_training_and_round_trip() -> tuple[int, float, str]:
         assert inspection.unknown_token_count == 0
         assert inspection.unknown_token_rate == 0.0
         assert inspection.average_characters_per_token > 0.0
+        streaming_inspection = inspect_tokenizer_streaming(
+            tokenizer,
+            input_paths,
+        )
+        assert streaming_inspection.document_count == 8
+        assert streaming_inspection.total_tokens > 0
 
         manifest = json.loads(
             first_result.manifest_path.read_text(encoding="utf-8")
