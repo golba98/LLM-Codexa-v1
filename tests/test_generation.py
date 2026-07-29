@@ -271,6 +271,25 @@ def test_checkpoint_cli_generation() -> None:
         assert release_output["checkpoint_run_id"] == "generation-run-id"
         assert release_output["release_directory"] == str(release_directory)
         assert release_output["checkpoint"] is None
+        released_tokenizer = release_directory / "tokenizer.json"
+        released_tokenizer.write_bytes(
+            released_tokenizer.read_bytes() + b"\n"
+        )
+        assert_raises(
+            ValueError,
+            run,
+            build_argument_parser().parse_args(
+                [
+                    "--release-dir",
+                    str(release_directory),
+                    "--prompt",
+                    "Codexa",
+                    "--device",
+                    "cpu",
+                    "--greedy",
+                ]
+            ),
+        )
 
 
 def main() -> None:
