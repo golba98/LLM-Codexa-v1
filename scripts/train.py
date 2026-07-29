@@ -2,6 +2,7 @@
 
 import argparse
 from dataclasses import asdict
+from datetime import datetime
 import json
 from pathlib import Path
 import subprocess
@@ -185,6 +186,75 @@ def _git_commit() -> str | None:
     except (OSError, subprocess.CalledProcessError):
         return None
     return result.stdout.strip() or None
+
+
+def _read_run_metadata(logger: JsonlRunLogger) -> dict[str, object]:
+    value = json.loads(logger.metadata_path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("Run metadata must contain a JSON object.")
+    return value
+
+
+def _record_resume(
+    logger: JsonlRunLogger,
+    *,
+    timestamp: str,
+    checkpoint: Path,
+    state: TrainingState,
+) -> None:
+    metadata = _read_run_metadata(logger)
+    events = metadata.get("resume_events", [])
+    if not isinstance(events, list):
+        raise ValueError("Run metadata resume_events must be an array.")
+    previous_stop = metadata.get("last_stop_timestamp_utc")
+    downtime_seconds: float | None = None
+    if isinstance(previous_stop, str):
+        try:
+            downtime_seconds = max(
+                0.0,
+                (
+                    datetime.fromisoformat(timestamp)
+                    - datetime.fromisoformat(previous_stop)
+                ).total_seconds(),
+            )
+        except ValueError as error:
+            raise ValueError(
+                "Run metadata has an invalid last stop timestamp."
+            ) from error
+    events.append(
+        {
+            "resumed_at_utc": timestamp,
+            "resume_checkpoint": str(checkpoint),
+            "optimizer_step": state.optimizer_step,
+            "micro_step": state.micro_step,
+            "tokens_seen": state.tokens_seen,
+            "downtime_seconds": downtime_seconds,
+        }
+    )
+    metadata["resume_events"] = events
+    metadata["last_resume_timestamp_utc"] = timestamp
+    metadata["run_status"] = "running"
+    logger.write_metadata(metadata)
+
+
+def _record_stop(
+    logger: JsonlRunLogger,
+    *,
+    timestamp: str,
+    state: TrainingState,
+    status: str,
+) -> None:
+    metadata = _read_run_metadata(logger)
+    metadata.update(
+        {
+            "run_status": status,
+            "last_stop_timestamp_utc": timestamp,
+            "completed_optimizer_steps": state.optimizer_step,
+            "completed_micro_steps": state.micro_step,
+            "tokens_seen": state.tokens_seen,
+        }
+    )
+    logger.write_metadata(metadata)
 
 
 def run(arguments: argparse.Namespace) -> int:
@@ -409,9 +479,24 @@ def run(arguments: argparse.Namespace) -> int:
                     "training_config": asdict(training_config),
                     "checkpoint_directory": str(checkpoint_manager.run_dir),
                     "resume_checkpoint": None,
+                    "resume_events": [],
+                    "run_status": "running",
                 }
             )
+        else:
+            _record_resume(
+                logger,
+                timestamp=start_timestamp,
+                checkpoint=arguments.resume,
+                state=state,
+            )
         if state.optimizer_step >= max_steps:
+            _record_stop(
+                logger,
+                timestamp=utc_timestamp(),
+                state=state,
+                status="completed",
+            )
             print(
                 f"Checkpoint already completed {state.optimizer_step} "
                 f"optimizer steps; nothing to do."
@@ -456,14 +541,34 @@ def run(arguments: argparse.Namespace) -> int:
         )
         if state.optimizer_step > 0 and at_boundary:
             save_checkpoint(state, object(), force=True)
+        _record_stop(
+            logger,
+            timestamp=utc_timestamp(),
+            state=state,
+            status="interrupted",
+        )
         print(
             f"Interrupted after {state.optimizer_step} completed optimizer steps.",
             file=sys.stderr,
         )
         return 130
+    except BaseException:
+        _record_stop(
+            logger,
+            timestamp=utc_timestamp(),
+            state=state,
+            status="failed",
+        )
+        raise
     finally:
         logger.close()
 
+    _record_stop(
+        logger,
+        timestamp=utc_timestamp(),
+        state=state,
+        status="completed",
+    )
     final = metrics[-1]
     print(f"Completed optimizer steps: {state.optimizer_step}")
     print(f"Completed micro-steps: {state.micro_step}")

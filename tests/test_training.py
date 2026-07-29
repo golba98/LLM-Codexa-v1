@@ -572,6 +572,14 @@ def test_cli_cpu() -> None:
         checkpoint_path = root / "checkpoints" / "cli" / "latest.pt"
         assert checkpoint_path.is_file()
         assert checkpoint_path.with_suffix(".pt.sha256").is_file()
+        metadata_path = root / "logs" / "cli" / "run_metadata.json"
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        assert metadata["run_status"] == "completed"
+        assert metadata["completed_optimizer_steps"] == 1
+        assert metadata["completed_micro_steps"] == 2
+        assert metadata["tokens_seen"] == 16
+        assert metadata["resume_events"] == []
+        assert metadata["last_stop_timestamp_utc"]
 
         resume_arguments = build_argument_parser().parse_args(
             [
@@ -603,6 +611,17 @@ def test_cli_cpu() -> None:
             ]
         )
         assert run(resume_arguments) == 0
+        resumed_metadata = json.loads(
+            metadata_path.read_text(encoding="utf-8")
+        )
+        assert resumed_metadata["run_status"] == "completed"
+        assert len(resumed_metadata["resume_events"]) == 1
+        resume_event = resumed_metadata["resume_events"][0]
+        assert resume_event["optimizer_step"] == 1
+        assert resume_event["micro_step"] == 2
+        assert resume_event["tokens_seen"] == 16
+        assert resume_event["downtime_seconds"] is not None
+        assert resume_event["downtime_seconds"] >= 0
 
 
 def test_cuda_precision_paths() -> None:
