@@ -7,7 +7,9 @@ import tempfile
 import pyarrow as arrow
 import pyarrow.parquet as parquet
 
+from scripts.estimate_parquet_tokens import estimate_shard
 from scripts.prepare_fineweb_edu import prepare_fineweb_edu
+from src.tokenizer import train_tokenizer
 
 
 def main() -> None:
@@ -76,6 +78,22 @@ def main() -> None:
             "First document.",
             "A distinct document.",
         }
+        tokenizer = train_tokenizer(
+            [first / "train.jsonl", first / "validation.jsonl"],
+            output_dir=root / "tokenizer",
+            vocab_size=300,
+            min_frequency=1,
+        )
+        estimate = estimate_shard(
+            shard,
+            tokenizer_path=tokenizer.tokenizer_path,
+        )
+        assert estimate.raw_documents == 4
+        assert estimate.cleaned_documents == 3
+        assert estimate.removed_empty_documents == 1
+        assert estimate.stored_tokens_with_eos == (
+            estimate.content_tokens + 3
+        )
 
     print("All FineWeb-Edu pipeline tests passed.")
 
