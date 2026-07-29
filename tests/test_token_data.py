@@ -120,6 +120,7 @@ def test_binary_pipeline() -> tuple[int, int, str, str]:
             output_dir=first_output,
             model_vocab_size=8192,
             context_length=CONTEXT_LENGTH,
+            encoding_batch_size=1,
         )
         repeated_result = build_token_data(
             train_jsonl=train_input,
@@ -151,6 +152,7 @@ def test_binary_pipeline() -> tuple[int, int, str, str]:
         assert manifest["eos_token_id"] == 2
         assert manifest["context_length"] == CONTEXT_LENGTH
         assert manifest["cli_arguments"]["stride"] == CONTEXT_LENGTH
+        assert manifest["cli_arguments"]["encoding_batch_size"] == 1
         assert not Path(manifest["tokenizer_path"]).is_absolute()
         assert all(
             not Path(path).is_absolute()
@@ -366,6 +368,19 @@ def test_validation_and_atomic_failure() -> None:
                 context_length=CONTEXT_LENGTH,
             ),
             "exceeds model vocabulary size",
+        )
+        assert_raises(
+            ValueError,
+            lambda: build_token_data(
+                train_jsonl=train_input,
+                validation_jsonl=validation_input,
+                tokenizer_path=tokenizer_path,
+                output_dir=root / "invalid-batch",
+                model_vocab_size=8192,
+                context_length=CONTEXT_LENGTH,
+                encoding_batch_size=0,
+            ),
+            "encoding_batch_size must be a positive integer",
         )
 
         malformed = root / "malformed.jsonl"

@@ -178,6 +178,7 @@ def _tokenize_split(
     eos_token_id: int,
     model_vocab_size: int,
     dtype: np.dtype,
+    encoding_batch_size: int,
 ) -> tuple[int, int]:
     token_count = 0
     document_count = 0
@@ -187,50 +188,64 @@ def _tokenize_split(
         index_output_path.open("w", encoding="utf-8") as index_file,
     ):
         index_file.write("[\n")
-        for ordinal, record in enumerate(_iter_jsonl_records(input_path)):
-            text = record["text"]
-            assert isinstance(text, str)
-            content_token_ids = tokenizer.encode(
-                text,
+        records = _iter_jsonl_records(input_path)
+        while True:
+            batch: list[dict[str, object]] = []
+            for _ in range(encoding_batch_size):
+                try:
+                    batch.append(next(records))
+                except StopIteration:
+                    break
+            if not batch:
+                break
+            texts = [record["text"] for record in batch]
+            assert all(isinstance(text, str) for text in texts)
+            encodings = tokenizer.encode_batch(
+                texts,
                 add_special_tokens=False,
-            ).ids
-            for token_id in content_token_ids:
-                if (
-                    not isinstance(token_id, int)
-                    or isinstance(token_id, bool)
-                    or token_id < 0
-                    or token_id >= model_vocab_size
-                ):
-                    raise ValueError(
-                        f"{input_path}: document {ordinal} produced invalid "
-                        f"token ID {token_id!r} for model vocabulary "
-                        f"size {model_vocab_size}."
-                    )
-
-            token_start = token_count
-            eos_position = token_start + len(content_token_ids)
-            stored_token_ids = [*content_token_ids, eos_token_id]
-            np.asarray(stored_token_ids, dtype=dtype).tofile(output_file)
-            token_count += len(stored_token_ids)
-
-            entry: dict[str, object] = {
-                "document_ordinal": ordinal,
-                "source": record.get("source", input_path.name),
-                "token_start": token_start,
-                "token_end": token_count,
-                "content_token_count": len(content_token_ids),
-                "eos_token_position": eos_position,
-                "total_stored_token_count": len(stored_token_ids),
-            }
-            document_id = record.get("document_id")
-            if document_id is not None:
-                entry["document_id"] = document_id
-            if document_count:
-                index_file.write(",\n")
-            index_file.write(
-                json.dumps(entry, ensure_ascii=False, sort_keys=True)
             )
-            document_count += 1
+            if len(encodings) != len(batch):
+                raise RuntimeError("Tokenizer batch output length mismatch.")
+            for record, encoding in zip(batch, encodings, strict=True):
+                ordinal = document_count
+                content_token_ids = encoding.ids
+                for token_id in content_token_ids:
+                    if (
+                        not isinstance(token_id, int)
+                        or isinstance(token_id, bool)
+                        or token_id < 0
+                        or token_id >= model_vocab_size
+                    ):
+                        raise ValueError(
+                            f"{input_path}: document {ordinal} produced "
+                            f"invalid token ID {token_id!r} for model "
+                            f"vocabulary size {model_vocab_size}."
+                        )
+
+                token_start = token_count
+                eos_position = token_start + len(content_token_ids)
+                stored_token_ids = [*content_token_ids, eos_token_id]
+                np.asarray(stored_token_ids, dtype=dtype).tofile(output_file)
+                token_count += len(stored_token_ids)
+
+                entry: dict[str, object] = {
+                    "document_ordinal": ordinal,
+                    "source": record.get("source", input_path.name),
+                    "token_start": token_start,
+                    "token_end": token_count,
+                    "content_token_count": len(content_token_ids),
+                    "eos_token_position": eos_position,
+                    "total_stored_token_count": len(stored_token_ids),
+                }
+                document_id = record.get("document_id")
+                if document_id is not None:
+                    entry["document_id"] = document_id
+                if document_count:
+                    index_file.write(",\n")
+                index_file.write(
+                    json.dumps(entry, ensure_ascii=False, sort_keys=True)
+                )
+                document_count += 1
         index_file.write("\n]\n")
 
     expected_size = token_count * dtype.itemsize
@@ -298,6 +313,7 @@ def build_token_data(
     model_vocab_size: int,
     context_length: int,
     stride: int | None = None,
+    encoding_batch_size: int = 256,
     overwrite: bool = False,
 ) -> TokenDataBuildResult:
     """Tokenize clean splits into atomic memory-mappable binary arrays."""
@@ -312,6 +328,12 @@ def build_token_data(
         context_length=context_length,
         stride=resolved_stride,
     )
+    if (
+        not isinstance(encoding_batch_size, int)
+        or isinstance(encoding_batch_size, bool)
+        or encoding_batch_size <= 0
+    ):
+        raise ValueError("encoding_batch_size must be a positive integer.")
 
     tokenizer = load_tokenizer(tokenizer_file)
     actual_vocab_size = tokenizer.get_vocab_size(with_added_tokens=True)
@@ -351,6 +373,7 @@ def build_token_data(
             eos_token_id=eos_token_id,
             model_vocab_size=model_vocab_size,
             dtype=dtype,
+            encoding_batch_size=encoding_batch_size,
         )
         validation_token_count, validation_document_count = _tokenize_split(
             input_path=validation_input,
@@ -360,6 +383,7 @@ def build_token_data(
             eos_token_id=eos_token_id,
             model_vocab_size=model_vocab_size,
             dtype=dtype,
+            encoding_batch_size=encoding_batch_size,
         )
         train_examples, train_trailing = count_packed_examples(
             train_token_count,
@@ -426,6 +450,7 @@ def build_token_data(
                 "model_vocab_size": model_vocab_size,
                 "context_length": context_length,
                 "stride": resolved_stride,
+                "encoding_batch_size": encoding_batch_size,
                 "overwrite": overwrite,
             },
         }
