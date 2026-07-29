@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch.utils.checkpoint import checkpoint
 
 
 _INTEGER_DTYPES = {
@@ -193,6 +194,7 @@ class LanguageModel(nn.Module):
     def __init__(self, config: ModelConfig) -> None:
         super().__init__()
         self.config = config
+        self.gradient_checkpointing = False
         self.token_embeddings = nn.Embedding(
             config.vocab_size,
             config.hidden_size,
@@ -214,6 +216,13 @@ class LanguageModel(nn.Module):
         self.apply(self._initialize_weights)
         if config.tie_embeddings:
             self.lm_head.weight = self.token_embeddings.weight
+
+    def set_gradient_checkpointing(self, enabled: bool) -> None:
+        """Enable activation recomputation for Transformer blocks."""
+
+        if not isinstance(enabled, bool):
+            raise TypeError("enabled must be a boolean.")
+        self.gradient_checkpointing = enabled
 
     @staticmethod
     def _initialize_weights(module: nn.Module) -> None:
@@ -265,7 +274,14 @@ class LanguageModel(nn.Module):
         hidden_states = hidden_states + self.position_embeddings(positions)
 
         for block in self.blocks:
-            hidden_states = block(hidden_states)
+            if self.gradient_checkpointing and self.training:
+                hidden_states = checkpoint(
+                    block,
+                    hidden_states,
+                    use_reentrant=False,
+                )
+            else:
+                hidden_states = block(hidden_states)
 
         logits = self.lm_head(self.final_norm(hidden_states))
         loss: torch.Tensor | None = None

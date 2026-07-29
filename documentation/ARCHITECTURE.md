@@ -38,5 +38,7 @@ scaled-dot-product attention avoids constructing a Python-level causal mask,
 but the final stable batch size must be established by the Phase 13 benchmark
 on the RTX 4080.
 
-The initial 250M training choice is micro-batch size 1 with gradient
-accumulation 32. This is a starting point, not a claimed benchmark result.
+The measured 250M training choice is micro-batch size 2 with gradient
+accumulation 16 at context length 2,048. This preserves 65,536 target tokens
+per optimizer update and peaked at 7,612,661,760 reserved CUDA bytes in the
+Phase 13 AdamW benchmark.

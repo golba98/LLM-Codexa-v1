@@ -179,6 +179,43 @@ def run_cuda_tests() -> tuple[str, str]:
     return cuda_result, "passed"
 
 
+def test_gradient_checkpointing() -> None:
+    """Checkpointed blocks preserve outputs and finite gradients."""
+
+    torch.manual_seed(7)
+    reference = LanguageModel(SMALL_CONFIG)
+    checkpointed = LanguageModel(SMALL_CONFIG)
+    checkpointed.load_state_dict(reference.state_dict())
+    checkpointed.set_gradient_checkpointing(True)
+    assert checkpointed.gradient_checkpointing
+    assert_raises(
+        TypeError,
+        lambda: checkpointed.set_gradient_checkpointing(1),  # type: ignore[arg-type]
+        "enabled must be a boolean",
+    )
+    input_ids = torch.randint(
+        0,
+        SMALL_CONFIG.vocab_size,
+        (2, 8),
+    )
+    labels = torch.roll(input_ids, shifts=-1, dims=1)
+    reference.train()
+    checkpointed.train()
+    reference_logits, reference_loss = reference(input_ids, labels)
+    checkpointed_logits, checkpointed_loss = checkpointed(input_ids, labels)
+    assert torch.equal(reference_logits, checkpointed_logits)
+    assert reference_loss is not None and checkpointed_loss is not None
+    assert torch.equal(reference_loss, checkpointed_loss)
+    checkpointed_loss.backward()
+    gradients = [
+        parameter.grad
+        for parameter in checkpointed.parameters()
+        if parameter.grad is not None
+    ]
+    assert gradients
+    assert all(torch.isfinite(gradient).all() for gradient in gradients)
+
+
 def main() -> None:
     """Run all smoke-model tests and print a concise environment summary."""
 
@@ -191,6 +228,7 @@ def main() -> None:
     torch.manual_seed(42)
     test_configuration_validation()
     test_weight_tying()
+    test_gradient_checkpointing()
 
     model = LanguageModel(SMALL_CONFIG)
     assert count_parameters(model) > 0

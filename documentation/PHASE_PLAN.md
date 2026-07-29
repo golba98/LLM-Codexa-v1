@@ -342,41 +342,41 @@ Use this checklist to track progress from environment setup through full trainin
 - [x] Adjust architecture toward 250M
 - [x] Estimate optimizer memory
 - [x] Estimate activation memory
-- [ ] Confirm model fits in 16 GB VRAM
+- [x] Confirm model fits in 16 GB VRAM
 - [x] Document final architecture
 
 ### Phase 12 completion criteria
 
 - [x] Exact parameter count is near 250M
-- [ ] Architecture fits on the RTX 4080
+- [x] Architecture fits on the RTX 4080
 - [x] Configuration is saved in `configs/250m.yaml`
 
 ---
 
 ## Phase 13 — 250M VRAM and Speed Benchmark
 
-- [ ] Instantiate the 250M model
-- [ ] Run one forward pass
-- [ ] Run one backward pass
-- [ ] Test BF16
-- [ ] Test sequence length 512
-- [ ] Test sequence length 1024
-- [ ] Test sequence length 2048
-- [ ] Test micro-batch size 1
-- [ ] Test larger micro-batches
-- [ ] Test gradient accumulation
-- [ ] Test gradient checkpointing
-- [ ] Test `torch.compile`
-- [ ] Measure peak VRAM
-- [ ] Measure tokens per second
-- [ ] Measure step time
-- [ ] Choose stable training settings
+- [x] Instantiate the 250M model
+- [x] Run one forward pass
+- [x] Run one backward pass
+- [x] Test BF16
+- [x] Test sequence length 512
+- [x] Test sequence length 1024
+- [x] Test sequence length 2048
+- [x] Test micro-batch size 1
+- [x] Test larger micro-batches
+- [x] Test gradient accumulation
+- [x] Test gradient checkpointing
+- [x] Test `torch.compile`
+- [x] Measure peak VRAM
+- [x] Measure tokens per second
+- [x] Measure step time
+- [x] Choose stable training settings
 
 ### Phase 13 completion criteria
 
-- [ ] Stable batch and sequence settings are known
-- [ ] Realistic full-run duration is estimated
-- [ ] No out-of-memory errors at chosen settings
+- [x] Stable batch and sequence settings are known
+- [x] Realistic full-run duration is estimated
+- [x] No out-of-memory errors at chosen settings
 
 ---
 
@@ -557,8 +557,8 @@ Update this section as work continues.
 - [x] Phase 9 — Text Generation
 - [x] Phase 10 — Tiny Overfit Test
 - [x] Phase 11 — Smoke Training Run
-- [ ] Phase 12 — Design the 250M Architecture
-- [ ] Phase 13 — 250M VRAM and Speed Benchmark
+- [x] Phase 12 — Design the 250M Architecture
+- [x] Phase 13 — 250M VRAM and Speed Benchmark
 - [ ] Phase 14 — 250M Prototype Run
 - [ ] Phase 15 — Intermediate Training Run
 - [ ] Phase 16 — Full Pretraining Run
