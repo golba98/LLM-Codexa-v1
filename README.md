@@ -136,6 +136,9 @@ telemetry during long runs:
 Each JSONL record is flushed immediately. Use `--append` only when continuing
 the same run's existing telemetry file.
 
+Summarize it with
+`.venv/bin/python -m scripts.summarize_gpu logs/RUN_NAME/gpu_metrics.jsonl`.
+
 ## Release export and backup
 
 Export only inference artifacts from the selected checkpoint:
