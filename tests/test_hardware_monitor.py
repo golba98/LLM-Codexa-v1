@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 
 from scripts.monitor_gpu import monitor_gpu
-from src.hardware_monitor import parse_nvidia_smi_row
+from src.hardware_monitor import parse_nvidia_smi_row, summarize_gpu_metrics
 
 
 def _raises(exception_type: type[BaseException], operation) -> None:
@@ -77,6 +77,12 @@ def main() -> None:
             == 1
         )
         assert len(output.read_text(encoding="utf-8").splitlines()) == 3
+        summary = summarize_gpu_metrics(output)
+        assert summary.sample_count == 3
+        assert summary.minimum_temperature_celsius == 63
+        assert summary.maximum_temperature_celsius == 63
+        assert summary.maximum_memory_used_mib == 11840
+        assert summary.mean_utilization_percent == (90 + 95 + 99) / 3
         _raises(
             ValueError,
             lambda: monitor_gpu(
