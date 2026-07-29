@@ -320,7 +320,7 @@ supervised fine-tuning:
 
 ```bash
 .venv/bin/python -m scripts.train_sft \
-  --config configs/250m_sft.yaml \
+  --config configs/250m_chat.yaml \
   --base-checkpoint checkpoints/phase15-500m/best.pt \
   --tokenizer checkpoints/tokenizer-tinystories/tokenizer.json \
   --instruction-jsonl \

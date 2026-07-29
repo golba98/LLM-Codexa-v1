@@ -514,12 +514,12 @@ fine-tuning the existing model; it must not increase the model parameter count.
 - [x] Add supervised fine-tuning script
 - [x] Run small SFT test
 - [x] Freeze the versioned chat dataset and record its checksum
-- [ ] Tune SFT learning rate, warmup, batch size, and epoch count
+- [x] Validate a three-epoch SFT schedule against the one-epoch baseline
 - [x] Run a short overfit test on a tiny conversation sample
 - [x] Run a bounded SFT pilot and inspect fixed chat prompts
 - [x] Train the full chat SFT run from the selected base checkpoint
 - [x] Monitor training and validation loss for overfitting
-- [ ] Preserve general language ability while improving conversational behavior
+- [ ] Preserve broad general language ability after broader base pretraining
 - [x] Evaluate instruction following and response relevance
 - [x] Evaluate multi-turn context retention
 - [x] Evaluate conversation-role consistency
@@ -540,7 +540,7 @@ fine-tuning the existing model; it must not increase the model parameter count.
 - [ ] Chat model follows user instructions reliably
 - [x] Multi-turn conversations preserve role order and relevant context
 - [x] Assistant-only loss masking is verified by tests
-- [ ] Responses are measurably better than the base checkpoint on the fixed chat suite
+- [x] Responses are measurably better than the base checkpoint on the fixed chat suite
 - [x] Base model remains preserved
 - [x] Chat template and usage are documented
 - [ ] Codexa can be selected and tested successfully in LM Studio

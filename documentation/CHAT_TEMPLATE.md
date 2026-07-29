@@ -41,7 +41,8 @@ must be reviewed before release. Version 1 contains 14,996 conversations:
 Its frozen SHA-256 is
 `2775dbd9e83933c2a6631329df14ad722920e6a70c205f8d4a744e371c119fb8`.
 
-The selected chat checkpoint is step 900 of `codexa-v1-chat`, with validation
-loss 2.7199708695769194. It improves conversational formatting over the
-TinyStories base but remains unreliable for factual answers and strict
-instruction following.
+The selected chat checkpoint is step 2,600 of `codexa-v1-chat-3epoch`, with
+validation loss 2.4662499567521. It improves conversational formatting,
+information extraction, summarization, and context recall over the TinyStories
+base, but remains unreliable for factual answers and strict instruction
+following.

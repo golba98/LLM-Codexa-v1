@@ -32,9 +32,11 @@ under `checkpoints/codexa-v1-chat/`.
 The multi-turn subset contains deterministic context-recall or exact-repeat
 follow-ups. It does not add unsupported factual answers.
 
-## Training result
+## Initial one-epoch run
 
-The CUDA BF16 run completed on the RTX 4080:
+The first CUDA BF16 run completed 1,000 optimizer steps. It established that
+the pipeline was stable, but covered only about one pass over the training
+split:
 
 - Optimizer steps: 1,000
 - Micro-steps: 8,000
@@ -45,11 +47,30 @@ The CUDA BF16 run completed on the RTX 4080:
 - Peak allocated VRAM: 10,503,376,896 bytes
 - Peak reserved VRAM: 11,997,806,592 bytes
 
+Its selected checkpoint was step 900 with validation loss 2.719971.
+
+## Selected three-epoch run
+
+`configs/250m_chat.yaml` defines 2,661 optimizer steps with an effective batch
+of 16, for 42,576 examples—almost exactly three passes over the 14,190-record
+training split. The clean run started from the preserved Phase 15 base rather
+than continuing from the one-epoch SFT model.
+
+- Optimizer steps: 2,661
+- Micro-steps: 21,288
+- Completed DataLoader epochs: 3
+- Tokens processed, including padding: 18,403,306
+- Initial training loss: 5.323554
+- Final training loss: 2.184958
+- Best validation loss: 2.466250 at step 2,600
+- Peak allocated VRAM: 10,557,756,416 bytes
+- Peak reserved VRAM: 11,997,806,592 bytes
+
 Selected checkpoint:
 
 ```text
-checkpoints/codexa-v1-chat/best.pt
-SHA-256: fcc6b1b44f808b05c3f9c26b0ffee2340ccc59b7afab47caf0ac9319e62af71f
+checkpoints/codexa-v1-chat-3epoch/best.pt
+SHA-256: 5cc74f6e3f14ba6a57268054e8c90395b40ca5c98c10baad9479e139b912f191
 ```
 
 Tokenizer:
@@ -62,9 +83,19 @@ SHA-256: 66df4e459b95af715b704c3a576f872db97e6e4e7e86d4774865c152d5221e98
 ## Evaluation
 
 The fixed eight-prompt instruction suite was run against the base, 10-step
-pilot, and selected step-900 checkpoint. The base passed zero strict format
-patterns; the selected checkpoint passed one. A real multi-turn API test
-correctly recalled that the user's favorite color was blue.
+pilot, one-epoch checkpoint, and selected three-epoch checkpoint:
+
+| Checkpoint | Expected terms | Strict formats |
+| --- | ---: | ---: |
+| Phase 15 base | 0/5 | 0/1 |
+| One-epoch SFT | 0/5 | 1/1 |
+| Three-epoch SFT | 1/5 | 0/1 |
+
+The three-epoch model extracted `Orion` from the fixed prompt. Live API tests
+also correctly recalled that the user's favorite color was blue, retained
+`Project Orion` from a note, and summarized a bee sentence without continuing
+as a story. These are measurable improvements, while the failed constraints
+remain visible.
 
 This is evidence of learned chat formatting and limited context recall, not
 reliable general-assistant quality. The model still produces incorrect facts,
@@ -81,11 +112,12 @@ logs/codexa-v1-chat/run_metadata.json
 logs/phase18-chat-evaluation/base.json
 logs/phase18-chat-evaluation/pilot.json
 logs/phase18-chat-evaluation/final-best.json
+logs/phase18-chat-evaluation/three-epoch-best.json
 ```
 
 ## LM Studio
 
-The local OpenAI-compatible server uses the selected step-900 checkpoint,
+The local OpenAI-compatible server uses the selected step-2,600 checkpoint,
 CUDA BF16, and canonical multi-turn template. Its model ID is
 `codexa-v1-chat`. Non-streaming and streaming API requests were verified.
 The user-level service is:
