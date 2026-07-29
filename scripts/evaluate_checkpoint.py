@@ -105,6 +105,18 @@ def _read_prompts(path: Path) -> list[dict[str, object]]:
             raise ValueError(
                 f"Prompt suite entry {index} has invalid expected_terms."
             )
+        expected_term_search_characters = item.get(
+            "expected_term_search_characters"
+        )
+        if expected_term_search_characters is not None and (
+            not isinstance(expected_term_search_characters, int)
+            or isinstance(expected_term_search_characters, bool)
+            or expected_term_search_characters <= 0
+        ):
+            raise ValueError(
+                f"Prompt suite entry {index} has an invalid expected-term "
+                "search window."
+            )
         expected_pattern = item.get("expected_pattern")
         if expected_pattern is not None:
             if not isinstance(expected_pattern, str) or not expected_pattern:
@@ -119,6 +131,21 @@ def _read_prompts(path: Path) -> list[dict[str, object]]:
                 ) from error
         prompts.append(dict(item))
     return prompts
+
+
+def _expected_term_matches(
+    terms: list[str],
+    continuation: str,
+    *,
+    search_characters: int | None,
+) -> dict[str, bool]:
+    searchable = (
+        continuation
+        if search_characters is None
+        else continuation[:search_characters]
+    )
+    folded = searchable.casefold()
+    return {term: term.casefold() in folded for term in terms}
 
 
 def _build_prompt(
@@ -387,6 +414,9 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             str(term) for term in prompt_entry.get("expected_terms", [])
         ]
         expected_pattern = prompt_entry.get("expected_pattern")
+        expected_term_search_characters = prompt_entry.get(
+            "expected_term_search_characters"
+        )
         sample: dict[str, object] = {
             "category": prompt_entry["category"],
             "prompt": prompt,
@@ -395,10 +425,14 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             "continuation": continuation,
             "generated_token_count": len(generated) - len(prompt_ids),
             "expected_terms": expected_terms,
-            "expected_term_matches": {
-                term: term.casefold() in continuation.casefold()
-                for term in expected_terms
-            },
+            "expected_term_search_characters": (
+                expected_term_search_characters
+            ),
+            "expected_term_matches": _expected_term_matches(
+                expected_terms,
+                continuation,
+                search_characters=expected_term_search_characters,
+            ),
             "expected_pattern": expected_pattern,
             "expected_pattern_match": (
                 None

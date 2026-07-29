@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from scripts.evaluate_checkpoint import (
     _build_prompt,
+    _expected_term_matches,
     _read_prompts,
     _validate_tokenizer_compatibility,
 )
@@ -87,6 +88,16 @@ def main() -> None:
     )
     assert instruction == "User: Name one color.\nAssistant:"
     assert instruction_ids[0] == 1
+    assert _expected_term_matches(
+        ["sun"],
+        "wrong immediate answer before the sun appears later",
+        search_characters=20,
+    ) == {"sun": False}
+    assert _expected_term_matches(
+        ["sun"],
+        "sun is the immediate answer",
+        search_characters=20,
+    ) == {"sun": True}
     _raises(
         ValueError,
         lambda: _build_prompt(

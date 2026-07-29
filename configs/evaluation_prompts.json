@@ -8,21 +8,24 @@
     "prompt": "Tom put an ice cube in the warm sun. After an hour, it began to",
     "expected_terms": [
       "melt"
-    ]
+    ],
+    "expected_term_search_characters": 64
   },
   {
     "category": "factual_consistency",
     "prompt": "The Earth travels around the",
     "expected_terms": [
       "sun"
-    ]
+    ],
+    "expected_term_search_characters": 64
   },
   {
     "category": "code_completion",
     "prompt": "def add_numbers(a, b):\n    return",
     "expected_terms": [
       "a + b"
-    ]
+    ],
+    "expected_term_search_characters": 64
   },
   {
     "category": "instruction_sensitivity",
@@ -34,7 +37,8 @@
     "prompt": "Mira's key was blue. She put it in the wooden box. Later, when Mira opened the box, the key was",
     "expected_terms": [
       "blue"
-    ]
+    ],
+    "expected_term_search_characters": 64
   },
   {
     "category": "long_context",
@@ -44,7 +48,8 @@
     "target_prompt_tokens": 1536,
     "expected_terms": [
       "sapphire compass"
-    ]
+    ],
+    "expected_term_search_characters": 64
   },
   {
     "category": "memorization_probe",
