@@ -422,6 +422,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         "tokenizer": str(arguments.tokenizer),
         "tokenizer_sha256": tokenizer_checksum,
         "prompt_suite": str(arguments.prompts),
+        "prompt_suite_sha256": file_sha256(arguments.prompts),
         "instruction_template": arguments.instruction_template,
         "device": str(device),
         "parameter_count": count_parameters(model),
@@ -432,6 +433,11 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             else perplexity_from_loss(validation_loss)
         ),
         "validation_token_count": validation_tokens,
+        "validation_token_sha256": (
+            None
+            if arguments.validation_token_file is None
+            else file_sha256(arguments.validation_token_file)
+        ),
         "generation_config": asdict(generation_config),
         "reference_document_limit": (
             None

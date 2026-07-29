@@ -15,6 +15,9 @@ def _report(path: Path, *, step: int, loss: float, repetition: float) -> None:
                 "checkpoint": f"checkpoint-{step}.pt",
                 "checkpoint_optimizer_step": step,
                 "checkpoint_run_id": "test-run",
+                "tokenizer_sha256": "tokenizer-checksum",
+                "prompt_suite_sha256": "prompt-checksum",
+                "validation_token_sha256": "validation-checksum",
                 "validation_loss": loss,
                 "validation_perplexity": 2.0**loss,
                 "samples": [
@@ -56,6 +59,7 @@ def main() -> None:
             SimpleNamespace(
                 reports=[first, second],
                 output=output,
+                selection_metric="validation",
                 overwrite=False,
             )
         )
@@ -76,12 +80,40 @@ def main() -> None:
             ]
             is True
         )
+        second_value = json.loads(second.read_text(encoding="utf-8"))
+        second_value["tokenizer_sha256"] = "different-tokenizer"
+        second.write_text(
+            json.dumps(second_value) + "\n",
+            encoding="utf-8",
+        )
+        quality = run(
+            SimpleNamespace(
+                reports=[first, second],
+                output=root / "quality.json",
+                selection_metric="quality",
+                overwrite=False,
+            )
+        )
+        assert quality["selection_metric"] == "quality"
+        assert quality["best_checkpoint"] == "checkpoint-200.pt"
+        _raises(
+            ValueError,
+            lambda: run(
+                SimpleNamespace(
+                    reports=[first, second],
+                    output=root / "invalid-validation.json",
+                    selection_metric="validation",
+                    overwrite=False,
+                )
+            ),
+        )
         _raises(
             FileExistsError,
             lambda: run(
                 SimpleNamespace(
                     reports=[first, second],
                     output=output,
+                    selection_metric="validation",
                     overwrite=False,
                 )
             ),
@@ -92,6 +124,7 @@ def main() -> None:
                 SimpleNamespace(
                     reports=[first],
                     output=root / "one.json",
+                    selection_metric="validation",
                     overwrite=False,
                 )
             ),

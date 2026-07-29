@@ -204,16 +204,28 @@ Compare two or more reports with the fixed selection rule:
 ```bash
 .venv/bin/python -m scripts.compare_evaluations \
   logs/prototype/evaluation.json \
-  logs/intermediate/evaluation.json \
-  logs/final/evaluation.json \
-  --output logs/evaluation_comparison.json \
+  logs/intermediate/step_2000_evaluation.json \
+  logs/intermediate/best_evaluation.json \
+  --output logs/tinystories_validation_comparison.json \
   --overwrite
 ```
 
-Candidates are ranked by validation loss, repeated four-gram rate, malformed
-characters, and then optimizer step. The comparison preserves per-category
-metrics so the selected checkpoint can still be reviewed for regressions that
-an aggregate rank would hide.
+Validation ranking requires identical tokenizer, prompt-suite, and validation
+token checksums. To compare models trained with different final tokenizers,
+rank the same fixed prompt suite by expected outcomes and output quality:
+
+```bash
+.venv/bin/python -m scripts.compare_evaluations \
+  logs/prototype/evaluation.json \
+  logs/intermediate/evaluation.json \
+  logs/final/evaluation.json \
+  --selection-metric quality \
+  --output logs/cross_tokenizer_quality_comparison.json \
+  --overwrite
+```
+
+The comparison preserves per-category metrics so the selected checkpoint can
+still be reviewed for regressions that an aggregate rank would hide.
 
 For a fair base-versus-SFT instruction comparison, evaluate both checkpoints
 with the same documented chat template:
