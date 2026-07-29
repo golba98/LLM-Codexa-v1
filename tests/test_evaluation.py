@@ -83,9 +83,10 @@ def main() -> None:
         tokenizer=_WhitespaceTokenizer(),
         context_length=128,
         instruction_template=True,
+        bos_token_id=1,
     )
     assert instruction == "User: Name one color.\nAssistant:"
-    assert instruction_ids
+    assert instruction_ids[0] == 1
     _raises(
         ValueError,
         lambda: _build_prompt(

@@ -294,6 +294,7 @@ def test_checkpoint_cli_generation() -> None:
             "Assistant:"
         )
         assert instruction_output["instruction"] == "Name a color."
+        assert instruction_output["prompt_token_ids"][0] == 1
         released_tokenizer = release_directory / "tokenizer.json"
         released_tokenizer.write_bytes(
             released_tokenizer.read_bytes() + b"\n"

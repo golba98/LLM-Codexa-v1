@@ -94,7 +94,8 @@ def _atomic_json_write(path: Path, value: object) -> None:
 
 def run(arguments: argparse.Namespace) -> dict[str, object]:
     device = resolve_device(arguments.device)
-    if arguments.instruction is not None:
+    instruction_mode = arguments.instruction is not None
+    if instruction_mode:
         from src.sft import format_instruction_prompt
 
         prompt = format_instruction_prompt(
@@ -154,6 +155,8 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         prompt,
         add_special_tokens=False,
     ).ids
+    if instruction_mode:
+        prompt_ids.insert(0, bos_token_id)
     if not prompt_ids:
         prompt_ids = [bos_token_id]
 

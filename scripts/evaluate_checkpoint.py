@@ -127,6 +127,7 @@ def _build_prompt(
     tokenizer,
     context_length: int,
     instruction_template: bool = False,
+    bos_token_id: int | None = None,
 ) -> tuple[str, list[int]]:
     prompt = entry.get("prompt")
     if isinstance(prompt, str):
@@ -134,10 +135,17 @@ def _build_prompt(
             from src.sft import format_instruction_prompt
 
             prompt = format_instruction_prompt(prompt, "")
-        return prompt, tokenizer.encode(
+        token_ids = tokenizer.encode(
             prompt,
             add_special_tokens=False,
         ).ids
+        if instruction_template:
+            if bos_token_id is None:
+                raise ValueError(
+                    "Instruction-template prompts require a BOS token ID."
+                )
+            token_ids.insert(0, bos_token_id)
+        return prompt, token_ids
 
     if instruction_template:
         raise ValueError(
@@ -361,6 +369,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             tokenizer=tokenizer,
             context_length=model_config.context_length,
             instruction_template=arguments.instruction_template,
+            bos_token_id=bos_token_id,
         )
         prompt_ids = prompt_ids or [bos_token_id]
         generated = generate_token_ids(
