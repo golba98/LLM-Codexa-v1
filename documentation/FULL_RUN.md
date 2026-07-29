@@ -163,3 +163,15 @@ improved again to `4.557276368141174`. The refreshed `best.pt` SHA-256 is
 `0adb087af641652c6fca5a71200857aa3ffbfe0c286d5757dac835902d674760`.
 The new `best.pt`, `latest.pt`, and rotated `previous.pt` sidecars all passed
 `sha256sum -c` while training continued.
+
+At update 2,000, training loss was `4.099617287516594` and validation loss
+improved to `4.024853229522705`. The second numbered milestone,
+`milestones/step_000002000.pt`, has SHA-256
+`5ef2080c32996805f42508660c9cf013c9e747d015be3a93c94d22669eb73b6b`.
+All retained checkpoint sidecars passed `sha256sum -c`.
+
+Learning-rate metrics also proved the zero-based scheduler boundary: update
+2,000 used scheduler index 1,999 and learning rate `0.00029985`; update 2,001
+used index 2,000 and reached exactly `0.0003`; update 2,002 began cosine decay.
+The checkpoint directory then occupied 14 GiB with 333 GiB free on the primary
+filesystem.
