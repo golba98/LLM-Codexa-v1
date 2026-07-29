@@ -157,3 +157,9 @@ improved to `5.21401834487915`. The first numbered milestone,
 The `best.pt`, `latest.pt`, `previous.pt`, and numbered milestone sidecars all
 passed `sha256sum -c`. The checkpoint directory then occupied 12 GiB and the
 primary filesystem retained 335 GiB free.
+
+At update 1,500, training loss was `4.571388214826584` and validation loss
+improved again to `4.557276368141174`. The refreshed `best.pt` SHA-256 is
+`0adb087af641652c6fca5a71200857aa3ffbfe0c286d5757dac835902d674760`.
+The new `best.pt`, `latest.pt`, and rotated `previous.pt` sidecars all passed
+`sha256sum -c` while training continued.
