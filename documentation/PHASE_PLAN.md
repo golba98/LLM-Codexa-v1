@@ -559,7 +559,7 @@ Update this section as work continues.
 - [x] Phase 11 — Smoke Training Run
 - [x] Phase 12 — Design the 250M Architecture
 - [x] Phase 13 — 250M VRAM and Speed Benchmark
-- [ ] Phase 14 — 250M Prototype Run
+- [x] Phase 14 — 250M Prototype Run
 - [ ] Phase 15 — Intermediate Training Run
 - [ ] Phase 16 — Full Pretraining Run
 - [ ] Phase 17 — Evaluation
