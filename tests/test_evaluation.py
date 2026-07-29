@@ -64,6 +64,10 @@ def main() -> None:
     assert ngram_overlap_rate("too short", "too short", ngram_size=4) == 0
 
     prompts = _read_prompts(Path("configs/evaluation_prompts.json"))
+    instruction_prompts = _read_prompts(
+        Path("configs/instruction_evaluation_prompts.json")
+    )
+    assert len(instruction_prompts) == 8
     long_context = next(
         prompt for prompt in prompts if prompt["category"] == "long_context"
     )
@@ -74,6 +78,14 @@ def main() -> None:
     )
     assert rendered
     assert len(token_ids) == 1536
+    instruction, instruction_ids = _build_prompt(
+        {"category": "instruction", "prompt": "Name one color."},
+        tokenizer=_WhitespaceTokenizer(),
+        context_length=128,
+        instruction_template=True,
+    )
+    assert instruction == "User: Name one color.\nAssistant:"
+    assert instruction_ids
     _raises(
         ValueError,
         lambda: _build_prompt(

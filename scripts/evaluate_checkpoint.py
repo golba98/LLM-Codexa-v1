@@ -58,6 +58,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--top-p", type=float, default=0.95)
     parser.add_argument("--repetition-penalty", type=float, default=1.1)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--instruction-template",
+        action="store_true",
+        help="Format each simple prompt with the documented SFT template.",
+    )
     parser.add_argument("--overwrite", action="store_true")
     return parser
 
@@ -121,14 +126,24 @@ def _build_prompt(
     *,
     tokenizer,
     context_length: int,
+    instruction_template: bool = False,
 ) -> tuple[str, list[int]]:
     prompt = entry.get("prompt")
     if isinstance(prompt, str):
+        if instruction_template:
+            from src.sft import format_instruction_prompt
+
+            prompt = format_instruction_prompt(prompt, "")
         return prompt, tokenizer.encode(
             prompt,
             add_special_tokens=False,
         ).ids
 
+    if instruction_template:
+        raise ValueError(
+            "Long-context synthetic prompts cannot use instruction-template "
+            "mode."
+        )
     target_tokens = int(entry["target_prompt_tokens"])
     if target_tokens >= context_length:
         raise ValueError(
@@ -345,6 +360,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             prompt_entry,
             tokenizer=tokenizer,
             context_length=model_config.context_length,
+            instruction_template=arguments.instruction_template,
         )
         prompt_ids = prompt_ids or [bos_token_id]
         generated = generate_token_ids(
@@ -406,6 +422,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         "tokenizer": str(arguments.tokenizer),
         "tokenizer_sha256": tokenizer_checksum,
         "prompt_suite": str(arguments.prompts),
+        "instruction_template": arguments.instruction_template,
         "device": str(device),
         "parameter_count": count_parameters(model),
         "validation_loss": validation_loss,
