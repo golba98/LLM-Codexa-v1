@@ -382,26 +382,26 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 14 — 250M Prototype Run
 
-- [ ] Train on 50M–100M tokens
-- [ ] Save regular checkpoints
-- [ ] Run validation regularly
-- [ ] Record training curves
-- [ ] Generate fixed prompt samples
-- [ ] Check for repetition
-- [ ] Check for malformed output
-- [ ] Check for data corruption
-- [ ] Review tokenizer quality
-- [ ] Review learning-rate behavior
-- [ ] Review GPU throughput
-- [ ] Estimate final training duration
-- [ ] Decide whether architecture changes are needed
+- [x] Train on 50M–100M tokens
+- [x] Save regular checkpoints
+- [x] Run validation regularly
+- [x] Record training curves
+- [x] Generate fixed prompt samples
+- [x] Check for repetition
+- [x] Check for malformed output
+- [x] Check for data corruption
+- [x] Review tokenizer quality
+- [x] Review learning-rate behavior
+- [x] Review GPU throughput
+- [x] Estimate final training duration
+- [x] Decide whether architecture changes are needed
 
 ### Phase 14 completion criteria
 
-- [ ] 250M model trains stably
-- [ ] Validation loss trends downward
-- [ ] Samples improve over time
-- [ ] Full-run configuration is approved
+- [x] 250M model trains stably
+- [x] Validation loss trends downward
+- [x] Samples improve over time
+- [x] Full-run configuration is approved
 
 ---
 
