@@ -267,6 +267,28 @@ def test_cli_tools() -> None:
         assert trained.returncode == 0, trained.stderr
         assert "Actual vocabulary size: 512" in trained.stdout
 
+        (tokenizer_dir / "tokenizer_manifest.json").unlink()
+        finalized = subprocess.run(
+            [
+                *train_command,
+                "--streaming",
+                "--finalize-existing",
+                "--inspection-batch-size",
+                "1",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert finalized.returncode == 0, finalized.stderr
+        finalized_manifest = json.loads(
+            tokenizer_dir.joinpath("tokenizer_manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert finalized_manifest["streaming"] is True
+        assert finalized_manifest["inspection_encoding_batch_size"] == 1
+
         inspect_command = [
             sys.executable,
             "scripts/inspect_tokenizer.py",
