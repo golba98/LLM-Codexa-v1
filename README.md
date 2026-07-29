@@ -64,6 +64,20 @@ The production experiment uses a pinned TinyStories revision:
 Raw and processed corpora are intentionally ignored by Git. See
 `documentation/DATASET.md` for provenance, license, checksums, and limitations.
 
+Prepare the pinned four-shard FineWeb-Edu candidate for the full run:
+
+```bash
+.venv/bin/python -m scripts.download_fineweb_edu --shard-count 4
+.venv/bin/python -m scripts.prepare_fineweb_edu \
+  data/raw/fineweb-edu-10bt/sample/10BT/000_00000.parquet \
+  data/raw/fineweb-edu-10bt/sample/10BT/001_00000.parquet \
+  data/raw/fineweb-edu-10bt/sample/10BT/002_00000.parquet \
+  data/raw/fineweb-edu-10bt/sample/10BT/003_00000.parquet \
+  --output-dir data/processed/fineweb-edu \
+  --validation-ratio 0.005 \
+  --seed 42
+```
+
 ## Tokenizer and token data
 
 Train the 8,192-entry byte-level BPE tokenizer without loading the whole corpus:
@@ -89,6 +103,28 @@ Create memory-mapped token streams:
   --model-vocab-size 8192 \
   --context-length 2048 \
   --overwrite
+```
+
+The final broad-corpus tokenizer and token stream use separate paths so the
+TinyStories experiment remains reproducible:
+
+```bash
+.venv/bin/python -m scripts.train_tokenizer \
+  data/processed/fineweb-edu/train.jsonl \
+  data/processed/fineweb-edu/validation.jsonl \
+  --output-dir checkpoints/tokenizer-fineweb-edu \
+  --vocab-size 8192 \
+  --min-frequency 2 \
+  --streaming
+
+.venv/bin/python -m scripts.tokenize_dataset \
+  --train-jsonl data/processed/fineweb-edu/train.jsonl \
+  --validation-jsonl data/processed/fineweb-edu/validation.jsonl \
+  --tokenizer checkpoints/tokenizer-fineweb-edu/tokenizer.json \
+  --output-dir data/tokenized/fineweb-edu \
+  --model-vocab-size 8192 \
+  --context-length 2048 \
+  --encoding-batch-size 256
 ```
 
 ## Training
