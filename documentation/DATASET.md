@@ -48,6 +48,13 @@ hash-based validation split. The number of shards used for the final run is
 selected only after tokenization confirms that the cleaned corpus contains the
 roadmap's 3B–5B Codexa-token target.
 
+The initial sizing sample encoded 10,000 cleaned documents from shard 0 into
+15,362,976 stored tokens (including one EOS per document), or 3.0815
+characters per content token. With 726,000 rows in that shard, four shards
+project near 4.5B tokens before exact cross-shard deduplication. Four is the
+provisional selection; the dataset is not frozen until full preparation and
+tokenization produce an exact count within 3B–5B.
+
 FineWeb-Edu broadens subject coverage, but web filtering is imperfect. It can
 contain factual errors, bias, personally identifying text, unsafe material,
 copyrighted text, and duplication missed by exact matching. It is not a
