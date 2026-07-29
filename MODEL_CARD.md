@@ -34,8 +34,18 @@ financial, safety, or security advice.
 The 50M-token prototype reduced validation loss from 5.2435 at 3.3M tokens to
 2.1651 at 49.2M tokens. It produced increasingly coherent short-story text but
 retained semantic, grammatical, causal, and long-range consistency errors.
-Intermediate and final evaluation results must be added before a weight
-release is labeled final.
+
+The 500M-token intermediate run completed 7,630 optimizer updates without a
+non-finite loss, CUDA failure, or thermal fault. Scheduled validation loss
+decreased from 3.6861 at 16.4M tokens to 0.9862 at 491.5M tokens. A separate
+fixed evaluation selected the final step-7,630 checkpoint with validation loss
+0.9931 and no malformed generated characters. Short-story coherence and local
+sentence flow improved substantially; code completion, factual reliability,
+instruction following, and robust long-context recall remain weak. See
+`documentation/INTERMEDIATE_RUN.md`.
+
+Final FineWeb-Edu pretraining and release evaluation results must be added
+before a weight release is labeled final.
 
 ## Limitations and risks
 

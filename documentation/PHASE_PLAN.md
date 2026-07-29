@@ -407,27 +407,27 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 15 — Intermediate Training Run
 
-- [ ] Prepare 500M–1B tokens
+- [x] Prepare 500M–1B tokens
 - [x] Validate dataset quality
 - [x] Confirm storage requirements
 - [ ] Confirm checkpoint backup plan
 - [x] Begin intermediate run
-- [ ] Monitor thermals
-- [ ] Monitor GPU stability
-- [ ] Monitor loss curves
+- [x] Monitor thermals
+- [x] Monitor GPU stability
+- [x] Monitor loss curves
 - [x] Generate milestone samples
 - [x] Evaluate repetition
 - [x] Evaluate coherence
 - [x] Evaluate code completion
 - [x] Evaluate long-context behavior
 - [x] Compare checkpoints
-- [ ] Select best checkpoint
+- [x] Select best checkpoint
 
 ### Phase 15 completion criteria
 
-- [ ] Model shows meaningful language ability
-- [ ] Dataset and hyperparameters are validated
-- [ ] Full training run is justified
+- [x] Model shows meaningful language ability
+- [x] Dataset and hyperparameters are validated
+- [x] Full training run is justified
 
 ---
 
