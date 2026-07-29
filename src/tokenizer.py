@@ -269,7 +269,7 @@ def inspect_tokenizer_streaming(
     tokenizer: Tokenizer,
     input_paths: Sequence[str | Path],
     *,
-    encoding_batch_size: int = 256,
+    encoding_batch_size: int = 16,
 ) -> TokenizerInspection:
     """Inspect a tokenizer over JSONL inputs with constant document memory."""
 
@@ -331,6 +331,7 @@ def train_tokenizer_streaming(
     output_dir: str | Path,
     vocab_size: int = 8192,
     min_frequency: int = 2,
+    inspection_encoding_batch_size: int = 16,
 ) -> TokenizerTrainingResult:
     """Train byte-level BPE from JSONL with constant document memory."""
 
@@ -355,10 +356,55 @@ def train_tokenizer_streaming(
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     tokenizer_path = destination / "tokenizer.json"
-    manifest_path = destination / "tokenizer_manifest.json"
     tokenizer.save(str(tokenizer_path), pretty=True)
-    inspection = inspect_tokenizer_streaming(tokenizer, normalized_paths)
+    return finalize_streaming_tokenizer(
+        tokenizer_path,
+        normalized_paths,
+        requested_vocab_size=vocab_size,
+        min_frequency=min_frequency,
+        inspection_encoding_batch_size=inspection_encoding_batch_size,
+    )
+
+
+def finalize_streaming_tokenizer(
+    tokenizer_path: str | Path,
+    input_paths: Sequence[str | Path],
+    *,
+    requested_vocab_size: int,
+    min_frequency: int,
+    inspection_encoding_batch_size: int = 16,
+    overwrite_manifest: bool = False,
+) -> TokenizerTrainingResult:
+    """Inspect an existing tokenizer and write its training manifest.
+
+    This supports safely resuming the bounded-memory inspection phase when
+    tokenizer training completed but corpus inspection was interrupted.
+    """
+
+    _validate_training_settings(requested_vocab_size, min_frequency)
+    normalized_paths = [Path(path) for path in input_paths]
+    tokenizer_file = Path(tokenizer_path)
+    if not tokenizer_file.is_file():
+        raise ValueError(f"Tokenizer file does not exist: {tokenizer_file}")
+    manifest_path = tokenizer_file.parent / "tokenizer_manifest.json"
+    if manifest_path.exists() and not overwrite_manifest:
+        raise ValueError(
+            f"Tokenizer manifest already exists: {manifest_path}; "
+            "set overwrite_manifest=True to replace it."
+        )
+
+    tokenizer = load_tokenizer(tokenizer_file)
     actual_vocab_size = tokenizer.get_vocab_size(with_added_tokens=True)
+    if actual_vocab_size != requested_vocab_size:
+        raise ValueError(
+            "Existing tokenizer vocabulary size does not match the requested "
+            f"size: expected {requested_vocab_size}, got {actual_vocab_size}."
+        )
+    inspection = inspect_tokenizer_streaming(
+        tokenizer,
+        normalized_paths,
+        encoding_batch_size=inspection_encoding_batch_size,
+    )
     manifest = {
         "created_at_utc": datetime.now(timezone.utc)
         .isoformat()
@@ -366,7 +412,7 @@ def train_tokenizer_streaming(
         "format_version": TOKENIZER_FORMAT_VERSION,
         "tokenizers_version": tokenizers.__version__,
         "streaming": True,
-        "inspection_encoding_batch_size": 256,
+        "inspection_encoding_batch_size": inspection_encoding_batch_size,
         "input_paths": [str(path.resolve()) for path in normalized_paths],
         "input_sha256": {
             str(path.resolve()): _file_sha256(path) for path in normalized_paths
@@ -376,21 +422,21 @@ def train_tokenizer_streaming(
         "decoder": "ByteLevel",
         "add_prefix_space": False,
         "automatic_bos_eos": False,
-        "requested_vocab_size": vocab_size,
+        "requested_vocab_size": requested_vocab_size,
         "actual_vocab_size": actual_vocab_size,
         "min_frequency": min_frequency,
         "special_tokens": {
             token: tokenizer.token_to_id(token) for token in SPECIAL_TOKENS
         },
         "inspection": inspection.to_dict(),
-        "tokenizer_path": str(tokenizer_path.resolve()),
-        "tokenizer_sha256": _file_sha256(tokenizer_path),
+        "tokenizer_path": str(tokenizer_file.resolve()),
+        "tokenizer_sha256": _file_sha256(tokenizer_file),
     }
     write_json(manifest_path, manifest)
     return TokenizerTrainingResult(
-        tokenizer_path=tokenizer_path,
+        tokenizer_path=tokenizer_file,
         manifest_path=manifest_path,
-        requested_vocab_size=vocab_size,
+        requested_vocab_size=requested_vocab_size,
         actual_vocab_size=actual_vocab_size,
         inspection=inspection,
     )

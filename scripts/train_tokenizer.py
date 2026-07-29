@@ -8,7 +8,11 @@ import sys
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.tokenizer import train_tokenizer, train_tokenizer_streaming
+from src.tokenizer import (
+    finalize_streaming_tokenizer,
+    train_tokenizer,
+    train_tokenizer_streaming,
+)
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -31,6 +35,20 @@ def build_argument_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Stream JSONL documents instead of retaining the corpus.",
     )
+    parser.add_argument(
+        "--inspection-batch-size",
+        type=int,
+        default=16,
+        help="Documents encoded per bounded-memory inspection batch.",
+    )
+    parser.add_argument(
+        "--finalize-existing",
+        action="store_true",
+        help=(
+            "Inspect output-dir/tokenizer.json and create its manifest without "
+            "retraining."
+        ),
+    )
     return parser
 
 
@@ -40,17 +58,35 @@ def main() -> None:
     parser = build_argument_parser()
     arguments = parser.parse_args()
     try:
-        trainer = (
-            train_tokenizer_streaming
-            if arguments.streaming
-            else train_tokenizer
-        )
-        result = trainer(
-            arguments.inputs,
-            output_dir=arguments.output_dir,
-            vocab_size=arguments.vocab_size,
-            min_frequency=arguments.min_frequency,
-        )
+        if arguments.finalize_existing:
+            if not arguments.streaming:
+                raise ValueError("--finalize-existing requires --streaming.")
+            result = finalize_streaming_tokenizer(
+                arguments.output_dir / "tokenizer.json",
+                arguments.inputs,
+                requested_vocab_size=arguments.vocab_size,
+                min_frequency=arguments.min_frequency,
+                inspection_encoding_batch_size=(
+                    arguments.inspection_batch_size
+                ),
+            )
+        elif arguments.streaming:
+            result = train_tokenizer_streaming(
+                arguments.inputs,
+                output_dir=arguments.output_dir,
+                vocab_size=arguments.vocab_size,
+                min_frequency=arguments.min_frequency,
+                inspection_encoding_batch_size=(
+                    arguments.inspection_batch_size
+                ),
+            )
+        else:
+            result = train_tokenizer(
+                arguments.inputs,
+                output_dir=arguments.output_dir,
+                vocab_size=arguments.vocab_size,
+                min_frequency=arguments.min_frequency,
+            )
     except (OSError, UnicodeError, ValueError) as error:
         parser.error(str(error))
 

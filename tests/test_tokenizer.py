@@ -15,6 +15,7 @@ from src.tokenizer import (
     PAD_TOKEN,
     SPECIAL_TOKENS,
     UNK_TOKEN,
+    finalize_streaming_tokenizer,
     inspect_tokenizer,
     inspect_tokenizer_streaming,
     load_tokenizer,
@@ -90,6 +91,7 @@ def test_training_and_round_trip() -> tuple[int, float, str]:
             output_dir=temporary_dir / "tokenizer-streaming",
             vocab_size=TEST_VOCAB_SIZE,
             min_frequency=1,
+            inspection_encoding_batch_size=2,
         )
 
         assert first_result.actual_vocab_size == TEST_VOCAB_SIZE
@@ -97,6 +99,30 @@ def test_training_and_round_trip() -> tuple[int, float, str]:
         first_checksum = file_sha256(first_result.tokenizer_path)
         assert first_checksum == file_sha256(second_result.tokenizer_path)
         assert first_checksum == file_sha256(streaming_result.tokenizer_path)
+        streaming_result.manifest_path.unlink()
+        finalized_result = finalize_streaming_tokenizer(
+            streaming_result.tokenizer_path,
+            input_paths,
+            requested_vocab_size=TEST_VOCAB_SIZE,
+            min_frequency=1,
+            inspection_encoding_batch_size=1,
+        )
+        assert finalized_result.inspection == streaming_result.inspection
+        finalized_manifest = json.loads(
+            finalized_result.manifest_path.read_text(encoding="utf-8")
+        )
+        assert finalized_manifest["inspection_encoding_batch_size"] == 1
+        assert finalized_manifest["tokenizer_sha256"] == first_checksum
+        assert_raises(
+            ValueError,
+            lambda: finalize_streaming_tokenizer(
+                streaming_result.tokenizer_path,
+                input_paths,
+                requested_vocab_size=TEST_VOCAB_SIZE,
+                min_frequency=1,
+            ),
+            "manifest already exists",
+        )
 
         tokenizer = load_tokenizer(first_result.tokenizer_path)
         assert tokenizer.get_vocab_size(with_added_tokens=True) == TEST_VOCAB_SIZE
