@@ -9,7 +9,7 @@
     "expected_terms": [
       "melt"
     ],
-    "expected_term_search_characters": 64
+    "expected_term_search_characters": 32
   },
   {
     "category": "factual_consistency",
@@ -17,7 +17,7 @@
     "expected_terms": [
       "sun"
     ],
-    "expected_term_search_characters": 64
+    "expected_term_search_characters": 16
   },
   {
     "category": "code_completion",
@@ -25,7 +25,7 @@
     "expected_terms": [
       "a + b"
     ],
-    "expected_term_search_characters": 64
+    "expected_term_search_characters": 32
   },
   {
     "category": "instruction_sensitivity",
@@ -38,7 +38,7 @@
     "expected_terms": [
       "blue"
     ],
-    "expected_term_search_characters": 64
+    "expected_term_search_characters": 32
   },
   {
     "category": "long_context",
@@ -49,7 +49,7 @@
     "expected_terms": [
       "sapphire compass"
     ],
-    "expected_term_search_characters": 64
+    "expected_term_search_characters": 32
   },
   {
     "category": "memorization_probe",
