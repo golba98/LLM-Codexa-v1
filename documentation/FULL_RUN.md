@@ -5,17 +5,23 @@
 Phase 16 uses these immutable inputs:
 
 - Configuration: `configs/250m_full.yaml`
+- Configuration SHA-256:
+  `8d8ce9a00bb5bb6cffeae977c0c19d91aa804ddfe26a8778ea149277fc631841`
 - Clean corpus: four pinned FineWeb-Edu `sample-10BT` shards documented in
   `documentation/DATASET.md`
 - Tokenizer vocabulary: 8,192
 - Tokenizer SHA-256:
   `6b26d3c98d8782298119875c368a69fdccbff03cca6fbfa1fc0851b0f3f8ef0c`
+- Tokenizer manifest SHA-256:
+  `a19e85e7230a6be6e5c82093949ac6990d4aa7e5866701a2a9e65a178fd77c39`
 - Train tokens: 3,496,587,568
 - Validation tokens: 17,453,678
 - Train binary SHA-256:
   `4575f7e3b837909ea512433d85c453a686466a74a14d2bfcfcaeef39728fe9f3`
 - Validation binary SHA-256:
   `f621153329cc54195986d47302e8f541d782f75e3ac971fa05d20e3b0295ef75`
+- Token-data manifest SHA-256:
+  `181bffa3266eaf308c84792b8770e447faf11105f06b9bd813defed218851fff`
 
 The binary and index verifier passed checksum, dtype, vocabulary-range,
 document-contiguity, and EOS-position checks.
