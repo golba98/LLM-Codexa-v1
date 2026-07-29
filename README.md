@@ -215,6 +215,20 @@ characters, and then optimizer step. The comparison preserves per-category
 metrics so the selected checkpoint can still be reviewed for regressions that
 an aggregate rank would hide.
 
+For a fair base-versus-SFT instruction comparison, evaluate both checkpoints
+with the same documented chat template:
+
+```bash
+.venv/bin/python -m scripts.evaluate_checkpoint \
+  --checkpoint checkpoints/RUN_NAME/best.pt \
+  --tokenizer checkpoints/FINAL_TOKENIZER/tokenizer.json \
+  --prompts configs/instruction_evaluation_prompts.json \
+  --instruction-template \
+  --device cuda \
+  --output logs/RUN_NAME/instruction_evaluation.json \
+  --overwrite
+```
+
 ## Optional instruction tuning
 
 The base model and instruction model use separate run names and checkpoint
