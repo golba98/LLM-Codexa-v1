@@ -5,7 +5,11 @@ import math
 from pathlib import Path
 from types import SimpleNamespace
 
-from scripts.evaluate_checkpoint import _build_prompt, _read_prompts
+from scripts.evaluate_checkpoint import (
+    _build_prompt,
+    _read_prompts,
+    _validate_tokenizer_compatibility,
+)
 from src.evaluation import (
     analyze_generated_text,
     ngram_overlap_rate,
@@ -76,6 +80,30 @@ def main() -> None:
             long_context,
             tokenizer=_WhitespaceTokenizer(),
             context_length=1024,
+        ),
+    )
+    _validate_tokenizer_compatibility(
+        checkpoint_checksum="abc",
+        tokenizer_checksum="abc",
+        tokenizer_vocab_size=300,
+        model_vocab_size=512,
+    )
+    _raises(
+        ValueError,
+        lambda: _validate_tokenizer_compatibility(
+            checkpoint_checksum="abc",
+            tokenizer_checksum="wrong",
+            tokenizer_vocab_size=300,
+            model_vocab_size=512,
+        ),
+    )
+    _raises(
+        ValueError,
+        lambda: _validate_tokenizer_compatibility(
+            checkpoint_checksum=None,
+            tokenizer_checksum="abc",
+            tokenizer_vocab_size=513,
+            model_vocab_size=512,
         ),
     )
 

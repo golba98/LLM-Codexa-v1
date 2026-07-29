@@ -26,7 +26,11 @@ from src.evaluation import (
 )
 from src.generate import GenerationConfig, generate_token_ids
 from src.model import LanguageModel, count_parameters
-from src.token_data import MemmapTokenDataset, create_token_dataloader
+from src.token_data import (
+    MemmapTokenDataset,
+    create_token_dataloader,
+    file_sha256,
+)
 from src.tokenizer import BOS_TOKEN, EOS_TOKEN, load_tokenizer
 from src.training import evaluate, resolve_device, resolve_precision
 
@@ -171,6 +175,22 @@ def _reference_text(path: Path, maximum_documents: int) -> str:
     return "\n".join(texts)
 
 
+def _validate_tokenizer_compatibility(
+    *,
+    checkpoint_checksum: str | None,
+    tokenizer_checksum: str,
+    tokenizer_vocab_size: int,
+    model_vocab_size: int,
+) -> None:
+    if (
+        checkpoint_checksum is not None
+        and checkpoint_checksum != tokenizer_checksum
+    ):
+        raise ValueError("Tokenizer checksum does not match the checkpoint.")
+    if tokenizer_vocab_size > model_vocab_size:
+        raise ValueError("Tokenizer vocabulary exceeds the model vocabulary.")
+
+
 def _atomic_json(path: Path, value: object, *, overwrite: bool) -> None:
     if path.exists() and not overwrite:
         raise FileExistsError(f"Refusing to overwrite evaluation: {path}")
@@ -213,6 +233,15 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         map_location=device,
     )
     tokenizer = load_tokenizer(arguments.tokenizer)
+    tokenizer_checksum = file_sha256(arguments.tokenizer)
+    _validate_tokenizer_compatibility(
+        checkpoint_checksum=checkpoint.tokenizer_sha256,
+        tokenizer_checksum=tokenizer_checksum,
+        tokenizer_vocab_size=tokenizer.get_vocab_size(
+            with_added_tokens=True
+        ),
+        model_vocab_size=model_config.vocab_size,
+    )
     eos_token_id = tokenizer.token_to_id(EOS_TOKEN)
     bos_token_id = tokenizer.token_to_id(BOS_TOKEN)
     if eos_token_id != 2 or bos_token_id != 1:
@@ -230,6 +259,32 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         manifest = json.loads(
             arguments.token_manifest.read_text(encoding="utf-8")
         )
+        if not isinstance(manifest, dict):
+            raise ValueError("Token manifest must contain a JSON object.")
+        if manifest.get("context_length") != model_config.context_length:
+            raise ValueError(
+                "Token-data context length does not match the checkpoint."
+            )
+        if manifest.get("model_vocab_size") != model_config.vocab_size:
+            raise ValueError(
+                "Token-data model vocabulary does not match the checkpoint."
+            )
+        if manifest.get("tokenizer_sha256") != tokenizer_checksum:
+            raise ValueError(
+                "Token-data tokenizer checksum does not match the tokenizer."
+            )
+        output_checksums = manifest.get("output_checksums")
+        if not isinstance(output_checksums, dict) or not isinstance(
+            output_checksums.get("validation"), str
+        ):
+            raise ValueError(
+                "Token manifest validation checksum is missing."
+            )
+        if (
+            file_sha256(arguments.validation_token_file)
+            != output_checksums["validation"]
+        ):
+            raise ValueError("Validation token-file checksum mismatch.")
         dtype = np.dtype(manifest["dtype"])
         dataset = MemmapTokenDataset(
             arguments.validation_token_file,
@@ -324,6 +379,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         "checkpoint_optimizer_step": checkpoint.training_state.optimizer_step,
         "checkpoint_run_id": checkpoint.run_id,
         "tokenizer": str(arguments.tokenizer),
+        "tokenizer_sha256": tokenizer_checksum,
         "prompt_suite": str(arguments.prompts),
         "device": str(device),
         "parameter_count": count_parameters(model),
