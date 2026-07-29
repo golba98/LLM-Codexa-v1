@@ -5,15 +5,24 @@
   },
   {
     "category": "causal_consistency",
-    "prompt": "Tom put an ice cube in the warm sun. After an hour,"
+    "prompt": "Tom put an ice cube in the warm sun. After an hour, it began to",
+    "expected_terms": [
+      "melt"
+    ]
   },
   {
     "category": "factual_consistency",
-    "prompt": "The Earth travels around the"
+    "prompt": "The Earth travels around the",
+    "expected_terms": [
+      "sun"
+    ]
   },
   {
     "category": "code_completion",
-    "prompt": "def add_numbers(a, b):\n    return"
+    "prompt": "def add_numbers(a, b):\n    return",
+    "expected_terms": [
+      "a + b"
+    ]
   },
   {
     "category": "instruction_sensitivity",
@@ -21,7 +30,10 @@
   },
   {
     "category": "context_retention",
-    "prompt": "Mira's key was blue. She put it in the wooden box. Later, when Mira opened the box, the key was"
+    "prompt": "Mira's key was blue. She put it in the wooden box. Later, when Mira opened the box, the key was",
+    "expected_terms": [
+      "blue"
+    ]
   },
   {
     "category": "long_context",
