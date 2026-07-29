@@ -171,58 +171,58 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 6 — Tokenized Dataset Pipeline
 
-- [ ] Create tokenization script
-- [ ] Convert cleaned text to token IDs
-- [ ] Append EOS tokens between documents
-- [ ] Pack tokens into fixed-length sequences
-- [ ] Create training split
-- [ ] Create validation split
-- [ ] Save token arrays efficiently
-- [ ] Add memory-mapped loading
-- [ ] Create PyTorch dataset class
-- [ ] Create DataLoader
-- [ ] Add deterministic shuffling
-- [ ] Test batch shapes
-- [ ] Test labels are shifted correctly
-- [ ] Confirm no data leakage between splits
-- [ ] Measure data-loading throughput
+- [x] Create tokenization script
+- [x] Convert cleaned text to token IDs
+- [x] Append EOS tokens between documents
+- [x] Pack tokens into fixed-length sequences
+- [x] Create training split
+- [x] Create validation split
+- [x] Save token arrays efficiently
+- [x] Add memory-mapped loading
+- [x] Create PyTorch dataset class
+- [x] Create DataLoader
+- [x] Add deterministic shuffling
+- [x] Test batch shapes
+- [x] Test labels are shifted correctly
+- [x] Confirm no data leakage between splits
+- [x] Measure data-loading throughput
 
 ### Phase 6 completion criteria
 
-- [ ] DataLoader returns valid input and label tensors
-- [ ] Batches load faster than the GPU consumes them
-- [ ] Training and validation splits remain separate
-- [ ] Dataset can resume deterministically
+- [x] DataLoader returns valid input and label tensors
+- [x] Batches load faster than the GPU consumes them
+- [x] Training and validation splits remain separate
+- [x] Dataset can resume deterministically
 
 ---
 
 ## Phase 7 — Training Loop
 
-- [ ] Create `src/train.py`
-- [ ] Move model to CUDA
-- [ ] Add AdamW optimizer
-- [ ] Add BF16 autocast
-- [ ] Add gradient accumulation
-- [ ] Add gradient clipping
-- [ ] Add learning-rate warmup
-- [ ] Add cosine learning-rate decay
-- [ ] Add training-loss logging
-- [ ] Add validation-loss logging
-- [ ] Add tokens-per-second logging
-- [ ] Add GPU-memory logging
-- [ ] Add step-time logging
-- [ ] Add NaN and Inf detection
-- [ ] Add random seed control
-- [ ] Add progress bar
-- [ ] Add graceful keyboard interruption
-- [ ] Add automatic cleanup after errors
+- [x] Create `src/train.py`
+- [x] Move model to CUDA
+- [x] Add AdamW optimizer
+- [x] Add BF16 autocast
+- [x] Add gradient accumulation
+- [x] Add gradient clipping
+- [x] Add learning-rate warmup
+- [x] Add cosine learning-rate decay
+- [x] Add training-loss logging
+- [x] Add validation-loss logging
+- [x] Add tokens-per-second logging
+- [x] Add GPU-memory logging
+- [x] Add step-time logging
+- [x] Add NaN and Inf detection
+- [x] Add random seed control
+- [x] Add progress bar
+- [x] Add graceful keyboard interruption
+- [x] Add automatic cleanup after errors
 
 ### Phase 7 completion criteria
 
-- [ ] Loss decreases during training
+- [x] Loss decreases during training
 - [ ] GPU utilization is consistently high
-- [ ] Memory usage remains stable
-- [ ] Training can run for several hundred steps
+- [x] Memory usage remains stable
+- [x] Training can run for several hundred steps
 
 ---
 
@@ -551,7 +551,7 @@ Update this section as work continues.
 - [x] Phase 3 — Configuration System
 - [x] Phase 4 — Dataset Preparation
 - [x] Phase 5 — Tokenizer
-- [ ] Phase 6 — Tokenized Dataset Pipeline
+- [x] Phase 6 — Tokenized Dataset Pipeline
 - [ ] Phase 7 — Training Loop
 - [x] Phase 8 — Checkpointing and Resume
 - [x] Phase 9 — Text Generation

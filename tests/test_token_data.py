@@ -14,6 +14,7 @@ from scripts.prepare_dataset import prepare_dataset
 from src.token_data import (
     MemmapTokenDataset,
     build_token_data,
+    benchmark_token_dataloader,
     choose_token_dtype,
     count_packed_examples,
     create_token_dataloader,
@@ -246,7 +247,7 @@ def test_binary_pipeline() -> tuple[int, int, str, str]:
         )
 
 
-def test_memmap_dataset_and_loader() -> None:
+def test_memmap_dataset_and_loader() -> float:
     """Verify causal alignment, bounds, dtype, and deterministic batching."""
 
     with TemporaryDirectory() as directory:
@@ -303,6 +304,21 @@ def test_memmap_dataset_and_loader() -> None:
         assert first_batch[1].shape == (2, CONTEXT_LENGTH)
         assert torch.equal(first_batch[0], second_batch[0])
         assert torch.equal(first_batch[1], second_batch[1])
+        benchmark = benchmark_token_dataloader(
+            first_loader,
+            max_batches=2,
+        )
+        assert benchmark.batches == 2
+        assert benchmark.tokens > 0
+        assert benchmark.tokens_per_second > 0
+        assert_raises(
+            ValueError,
+            lambda: benchmark_token_dataloader(
+                first_loader,
+                max_batches=0,
+            ),
+            "max_batches must be a positive integer",
+        )
 
         partial_file = root / "partial.bin"
         partial_file.write_bytes(b"\x00\x01\x02")
@@ -327,6 +343,7 @@ def test_memmap_dataset_and_loader() -> None:
             ),
             "at least 5 are required",
         )
+        return benchmark.tokens_per_second
 
 
 def test_validation_and_atomic_failure() -> None:
@@ -426,7 +443,7 @@ def main() -> None:
     train_count, validation_count, train_checksum, validation_checksum = (
         test_binary_pipeline()
     )
-    test_memmap_dataset_and_loader()
+    loader_tokens_per_second = test_memmap_dataset_and_loader()
     test_validation_and_atomic_failure()
     test_cli_tools()
 
@@ -434,6 +451,10 @@ def main() -> None:
     print(f"Validation tokens: {validation_count}")
     print(f"Train SHA-256: {train_checksum}")
     print(f"Validation SHA-256: {validation_checksum}")
+    print(
+        "DataLoader throughput: "
+        f"{loader_tokens_per_second:,.0f} tokens/second"
+    )
     print("All token data tests passed.")
 
 

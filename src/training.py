@@ -19,6 +19,7 @@ import torch
 from torch import nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 
 def utc_timestamp() -> str:
@@ -498,6 +499,17 @@ def train_model(
     metrics: list[TrainingMetrics] = []
     initial_micro_step = run_state.micro_step
     attempted_micro_steps = 0
+    progress_bar = (
+        tqdm(
+            total=max_steps,
+            initial=run_state.optimizer_step,
+            desc=run_name,
+            unit="step",
+            dynamic_ncols=True,
+        )
+        if progress
+        else None
+    )
     while run_state.optimizer_step < max_steps:
         if (
             max_micro_steps is not None
@@ -629,22 +641,21 @@ def train_model(
             logger.write_metrics(record)
         if on_optimizer_step is not None:
             on_optimizer_step(run_state, record)
-        if progress:
-            validation_text = (
-                ""
-                if validation_loss is None
-                else f" val={validation_loss:.4f}"
-            )
-            print(
-                f"step {record.optimizer_step}/{max_steps} "
-                f"loss={record.training_loss:.4f}{validation_text} "
-                f"lr={record.learning_rate:.3e} "
-                f"tok/s={record.tokens_per_second:.1f}",
-                flush=True,
-            )
+        if progress_bar is not None:
+            postfix: dict[str, str] = {
+                "loss": f"{record.training_loss:.4f}",
+                "lr": f"{record.learning_rate:.2e}",
+                "tok/s": f"{record.tokens_per_second:.0f}",
+            }
+            if validation_loss is not None:
+                postfix["val"] = f"{validation_loss:.4f}"
+            progress_bar.set_postfix(postfix)
+            progress_bar.update(1)
 
     if run_state.micro_step - initial_micro_step != attempted_micro_steps:
         raise RuntimeError("Training micro-step accounting mismatch.")
+    if progress_bar is not None:
+        progress_bar.close()
     return run_state, metrics
 
 

@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 from collections.abc import Iterator
 
 import numpy as np
@@ -35,6 +36,17 @@ class TokenDataBuildResult:
     train_document_count: int
     validation_document_count: int
     dtype: str
+
+
+@dataclass(frozen=True)
+class DataLoaderBenchmark:
+    """Measured DataLoader throughput."""
+
+    batches: int
+    examples: int
+    tokens: int
+    elapsed_seconds: float
+    tokens_per_second: float
 
 
 def file_sha256(path: str | Path) -> str:
@@ -512,6 +524,46 @@ def create_token_dataloader(
         pin_memory=pin_memory,
         drop_last=drop_last,
         generator=generator,
+    )
+
+
+def benchmark_token_dataloader(
+    data_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    *,
+    max_batches: int = 100,
+) -> DataLoaderBenchmark:
+    """Measure host-side batch loading and tensor collation throughput."""
+
+    if (
+        not isinstance(max_batches, int)
+        or isinstance(max_batches, bool)
+        or max_batches <= 0
+    ):
+        raise ValueError("max_batches must be a positive integer.")
+    if len(data_loader) == 0:
+        raise ValueError("DataLoader must not be empty.")
+
+    batch_count = 0
+    example_count = 0
+    token_count = 0
+    start = time.perf_counter()
+    for input_ids, labels in data_loader:
+        if input_ids.shape != labels.shape or input_ids.ndim != 2:
+            raise ValueError("DataLoader returned invalid causal-LM tensors.")
+        batch_count += 1
+        example_count += input_ids.shape[0]
+        token_count += labels.numel()
+        if batch_count >= max_batches:
+            break
+    elapsed = time.perf_counter() - start
+    if elapsed <= 0 or token_count <= 0:
+        raise RuntimeError("DataLoader benchmark produced no measurable work.")
+    return DataLoaderBenchmark(
+        batches=batch_count,
+        examples=example_count,
+        tokens=token_count,
+        elapsed_seconds=elapsed,
+        tokens_per_second=token_count / elapsed,
     )
 
 
