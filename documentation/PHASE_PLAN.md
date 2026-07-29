@@ -220,7 +220,7 @@ Use this checklist to track progress from environment setup through full trainin
 ### Phase 7 completion criteria
 
 - [x] Loss decreases during training
-- [ ] GPU utilization is consistently high
+- [x] GPU utilization is consistently high
 - [x] Memory usage remains stable
 - [x] Training can run for several hundred steps
 
@@ -306,25 +306,25 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 11 — Smoke Training Run
 
-- [ ] Train on 1M–5M tokens
-- [ ] Use the smoke configuration
-- [ ] Monitor training loss
-- [ ] Monitor validation loss
-- [ ] Monitor VRAM usage
-- [ ] Monitor GPU utilization
-- [ ] Record tokens per second
-- [ ] Record checkpoint size
-- [ ] Generate samples during training
-- [ ] Inspect samples for corruption
-- [ ] Fix all pipeline bugs
+- [x] Train on 1M–5M tokens
+- [x] Use the smoke configuration
+- [x] Monitor training loss
+- [x] Monitor validation loss
+- [x] Monitor VRAM usage
+- [x] Monitor GPU utilization
+- [x] Record tokens per second
+- [x] Record checkpoint size
+- [x] Generate samples during training
+- [x] Inspect samples for corruption
+- [x] Fix all pipeline bugs
 
 ### Phase 11 completion criteria
 
-- [ ] Full pipeline completes without failure
-- [ ] Validation runs correctly
-- [ ] Checkpoints are usable
-- [ ] Generation is recognizable
-- [ ] No unresolved critical bugs remain
+- [x] Full pipeline completes without failure
+- [x] Validation runs correctly
+- [x] Checkpoints are usable
+- [x] Generation is recognizable
+- [x] No unresolved critical bugs remain
 
 ---
 
@@ -552,11 +552,11 @@ Update this section as work continues.
 - [x] Phase 4 — Dataset Preparation
 - [x] Phase 5 — Tokenizer
 - [x] Phase 6 — Tokenized Dataset Pipeline
-- [ ] Phase 7 — Training Loop
+- [x] Phase 7 — Training Loop
 - [x] Phase 8 — Checkpointing and Resume
 - [x] Phase 9 — Text Generation
 - [x] Phase 10 — Tiny Overfit Test
-- [ ] Phase 11 — Smoke Training Run
+- [x] Phase 11 — Smoke Training Run
 - [ ] Phase 12 — Design the 250M Architecture
 - [ ] Phase 13 — 250M VRAM and Speed Benchmark
 - [ ] Phase 14 — 250M Prototype Run

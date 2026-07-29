@@ -345,13 +345,18 @@ def run(arguments: argparse.Namespace) -> int:
         interval_boundary = (
             optimizer_step % training_config.checkpoint_interval == 0
         )
-        if not force and not interval_boundary and optimizer_step != max_steps:
-            return
         validation_loss = getattr(metrics, "validation_loss", None)
         is_best = (
             validation_loss is not None
             and current_state.best_validation_loss == validation_loss
         )
+        if (
+            not force
+            and not interval_boundary
+            and optimizer_step != max_steps
+            and not is_best
+        ):
+            return
         payload = build_checkpoint_payload(
             model=model,
             optimizer=optimizer,
