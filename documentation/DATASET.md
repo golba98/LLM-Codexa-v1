@@ -27,3 +27,29 @@ not be represented as general language ability. Before Phase 16 begins, the
 dataset decision must be revisited because the roadmap's 3B–5B-token target
 and code-completion evaluation require broader coverage than TinyStories
 provides.
+
+## FineWeb-Edu
+
+Phase 16 uses a measured subset of the official
+[HuggingFaceFW/fineweb-edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu)
+`sample-10BT` configuration. FineWeb-Edu is educational web text filtered from
+FineWeb and is distributed under ODC-By 1.0. The source must be attributed in
+any dataset or model release.
+
+Downloads are pinned to revision:
+
+`87f09149ef4734204d70ed1d046ddc9ca3f2b8f9`
+
+`scripts/download_fineweb_edu.py` downloads a deterministic leading shard set
+and records SHA-256 checksums. `scripts/prepare_fineweb_edu.py` streams Parquet
+row groups, applies the same cleaning policy as the local pipeline, performs
+exact text deduplication through an on-disk SQLite index, and creates a stable
+hash-based validation split. The number of shards used for the final run is
+selected only after tokenization confirms that the cleaned corpus contains the
+roadmap's 3B–5B Codexa-token target.
+
+FineWeb-Edu broadens subject coverage, but web filtering is imperfect. It can
+contain factual errors, bias, personally identifying text, unsafe material,
+copyrighted text, and duplication missed by exact matching. It is not a
+specialized code corpus, so code-completion results must be reported honestly
+rather than treated as a primary capability.
