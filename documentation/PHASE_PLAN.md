@@ -285,22 +285,22 @@ Use this checklist to track progress from environment setup through full trainin
 
 ## Phase 10 — Tiny Overfit Test
 
-- [ ] Create a very small dataset
-- [ ] Train a 10M–30M model
-- [ ] Use short context length
-- [ ] Attempt to overfit a tiny batch
-- [ ] Confirm loss approaches a very low value
-- [ ] Generate memorized text
-- [ ] Save checkpoint
-- [ ] Reload checkpoint
-- [ ] Resume training
-- [ ] Verify results are reproducible
+- [x] Create a very small dataset
+- [x] Train a 10M–30M model
+- [x] Use short context length
+- [x] Attempt to overfit a tiny batch
+- [x] Confirm loss approaches a very low value
+- [x] Generate memorized text
+- [x] Save checkpoint
+- [x] Reload checkpoint
+- [x] Resume training
+- [x] Verify results are reproducible
 
 ### Phase 10 completion criteria
 
-- [ ] Tiny model deliberately overfits
-- [ ] Loss and generation prove the pipeline works
-- [ ] Save, load, and resume all function correctly
+- [x] Tiny model deliberately overfits
+- [x] Loss and generation prove the pipeline works
+- [x] Save, load, and resume all function correctly
 
 ---
 
@@ -555,7 +555,7 @@ Update this section as work continues.
 - [ ] Phase 7 — Training Loop
 - [x] Phase 8 — Checkpointing and Resume
 - [x] Phase 9 — Text Generation
-- [ ] Phase 10 — Tiny Overfit Test
+- [x] Phase 10 — Tiny Overfit Test
 - [ ] Phase 11 — Smoke Training Run
 - [ ] Phase 12 — Design the 250M Architecture
 - [ ] Phase 13 — 250M VRAM and Speed Benchmark
