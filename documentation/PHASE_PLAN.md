@@ -446,12 +446,12 @@ fine-tuning the existing model; it must not increase the model parameter count.
 - [x] Verify system cooling
 - [x] Verify power stability by explicit operator confirmation
 - [x] Run final preflight test
-- [ ] Start full training
+- [x] Start full training
 - [ ] Save frequent checkpoints
 - [ ] Save milestone checkpoints
 - [ ] Run validation periodically
 - [ ] Generate fixed prompt samples
-- [ ] Record throughput
+- [x] Record throughput
 - [ ] Record downtime
 - [ ] Resume safely after interruptions
 - [ ] Complete target token count

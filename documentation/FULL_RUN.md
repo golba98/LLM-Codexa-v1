@@ -120,3 +120,26 @@ stored at `logs/phase16-full/preflight_final.json`. It recorded:
 The no-backup waiver protects neither checkpoints nor logs from failure of the
 primary Fedora disk. Atomic writes and SHA-256 sidecars only detect corruption;
 they are not a substitute for an independent copy.
+
+## Live run
+
+The full run started at `2026-07-29T13:22:51Z` with run ID
+`876ad62d-631a-4eb5-aa41-8ad8eea0b68a` and Git commit
+`4001715201e63e7336331495d50adc6fee43a18a`. The persistent user services are:
+
+- `codexa-phase16-training.service`
+- `codexa-phase16-monitor.service`
+
+Training logs are under `logs/phase16-pretrain/`, GPU telemetry is
+`logs/phase16-full/gpu_metrics.jsonl`, and checkpoints are under
+`checkpoints/phase16-full/phase16-pretrain/`. The trainer is wrapped in a
+sleep/shutdown inhibitor, uses `SIGINT` for graceful service stops, and user
+lingering is enabled so a desktop logout does not terminate the run. A reboot
+still requires verified resume from `latest.pt`.
+
+The initial production-shape observation completed 16 optimizer updates and
+1,048,576 tokens. Loss moved from 9.1690 to 8.9157 at approximately 28,000
+tokens/second. Peak reserved VRAM was 11,406,409,728 bytes; sustained telemetry
+showed 99% utilization, 65 C, and approximately 250 W. The selected chat
+inference service was stopped to release its GPU allocation, but its checkpoint
+remains preserved.
