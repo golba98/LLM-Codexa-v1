@@ -18,6 +18,7 @@ EXPECTED_PARAMETER_COUNT = 17_406_336
 EXPECTED_TIER_PARAMETER_COUNTS = {
     Path("configs/prototype.yaml"): 55_058_944,
     Path("configs/250m.yaml"): 248_565_504,
+    Path("configs/250m_full.yaml"): 248_565_504,
 }
 
 
@@ -119,6 +120,21 @@ def test_larger_configurations() -> None:
     )
 
 
+def test_full_training_token_budget() -> None:
+    """Keep the full-run configuration at the lower 3B-token target."""
+
+    config = load_config("configs/250m_full.yaml")
+    tokens_per_step = (
+        config.training.micro_batch_size
+        * config.training.gradient_accumulation_steps
+        * config.model.context_length
+    )
+    total_tokens = tokens_per_step * config.training.max_steps
+    assert tokens_per_step == 65_536
+    assert total_tokens == 3_000_041_472
+    assert 3_000_000_000 <= total_tokens <= 5_000_000_000
+
+
 def test_schema_errors() -> None:
     """Reject missing, unknown, or incorrectly shaped configuration data."""
 
@@ -213,6 +229,7 @@ def main() -> None:
 
     config = test_valid_smoke_config()
     test_larger_configurations()
+    test_full_training_token_budget()
     test_file_and_yaml_errors()
     test_schema_errors()
     test_value_errors()
