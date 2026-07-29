@@ -65,8 +65,8 @@ def _load_summary(path: Path) -> dict[str, object]:
         if not isinstance(quality, dict):
             raise ValueError(f"{path}: sample {index} has invalid quality.")
         repetition = _finite_number(
-            quality.get("repeated_four_gram_rate"),
-            f"samples[{index}].quality.repeated_four_gram_rate",
+            quality.get("repeated_ngram_rate"),
+            f"samples[{index}].quality.repeated_ngram_rate",
             path,
         )
         malformed = quality.get("malformed_character_count")
@@ -104,7 +104,7 @@ def _load_summary(path: Path) -> dict[str, object]:
             expected_outcomes += 1
             matched_outcomes += int(expected_pattern_match)
         category_metrics[category] = {
-            "repeated_four_gram_rate": repetition,
+            "repeated_ngram_rate": repetition,
             "malformed_character_count": malformed,
             "word_count": quality.get("word_count"),
             "expected_term_match_rate": (
@@ -132,7 +132,7 @@ def _load_summary(path: Path) -> dict[str, object]:
         "validation_token_sha256": value.get("validation_token_sha256"),
         "validation_loss": validation_loss,
         "validation_perplexity": value.get("validation_perplexity"),
-        "mean_repeated_four_gram_rate": (
+        "mean_repeated_ngram_rate": (
             sum(repetition_rates) / len(repetition_rates)
         ),
         "malformed_character_count": malformed_count,
@@ -216,7 +216,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             candidates,
             key=lambda item: (
                 item["validation_loss"],
-                item["mean_repeated_four_gram_rate"],
+                item["mean_repeated_ngram_rate"],
                 item["malformed_character_count"],
                 -item["checkpoint_optimizer_step"],
             ),
@@ -239,7 +239,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             candidates,
             key=lambda item: (
                 -item["expected_outcome_match_rate"],
-                item["mean_repeated_four_gram_rate"],
+                item["mean_repeated_ngram_rate"],
                 item["malformed_character_count"],
                 -item["checkpoint_optimizer_step"],
             ),

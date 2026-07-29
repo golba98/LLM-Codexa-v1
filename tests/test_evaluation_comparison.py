@@ -26,7 +26,7 @@ def _report(path: Path, *, step: int, loss: float, repetition: float) -> None:
                         "expected_term_matches": {"answer": step == 200},
                         "expected_pattern_match": step == 200,
                         "quality": {
-                            "repeated_four_gram_rate": repetition,
+                            "repeated_ngram_rate": repetition,
                             "malformed_character_count": 0,
                             "word_count": 12,
                         },
