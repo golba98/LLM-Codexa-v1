@@ -104,6 +104,23 @@ pretraining is the main limitation; broader pretraining data and stronger
 licensed instruction/chat data are required before Phase 18 can be considered
 complete.
 
+### Rejected category-balanced experiment
+
+A controlled run used the same base checkpoint, dataset, seed, optimizer, and
+2,661-step schedule while sampling the eight top-level Dolly categories with
+equal probability. It was rejected:
+
+- Best validation loss: 2.514371 at step 2,600
+- Selected unbalanced validation loss: 2.466250 at step 2,600
+- Both models matched one of five expected terms and zero of one strict format
+- The balanced model lost the correct `Orion` extraction
+- Its apparent temperature match was an accidental zero inside a malformed
+  number
+
+The selected checkpoint remains `codexa-v1-chat-3epoch/best.pt`. The
+category-balancing implementation was removed rather than retaining a
+negative experiment as unused product complexity.
+
 Evaluation reports and training metrics are local ignored artifacts:
 
 ```text

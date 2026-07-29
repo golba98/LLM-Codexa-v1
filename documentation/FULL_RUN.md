@@ -44,15 +44,15 @@ every 1,000 steps.
 
 ## Preflight status
 
-The first real-input preflight was recorded at
-`2026-07-29T09:07:52Z`. It proved:
+The latest real-input preflight was recorded at
+`2026-07-29T12:30:48Z`. It proved:
 
 - NVIDIA GeForce RTX 4080 and CUDA available
 - CUDA BF16 supported
 - isolated BF16 forward/backward passed at sequence length 512
-- GPU temperature 65 C, below the configured 70 C maximum
+- GPU temperature 45 C, below the configured 70 C maximum
 - production token manifest and binaries valid
-- 438 GiB available on the checkpoint filesystem
+- 373.8 GiB available on the checkpoint filesystem
 - conservative retained-checkpoint projection 146,207,896,576 bytes
   (about 136.2 GiB)
 
@@ -61,6 +61,20 @@ The run remains intentionally gated on:
 - selecting and verifying an independently mounted backup destination;
 - explicit confirmation of stable mains or UPS power, because this desktop
   exposes no Mains/UPS state through `/sys/class/power_supply`.
+
+The only other non-MSI physical disk discovered locally was inspected
+read-only and unmounted again. It is a 512 GB SATA SSD labeled `Games`, with
+49 GB free, so it cannot hold the 136.2 GiB retained-checkpoint projection and
+is not a valid backup target. No files were written to it.
+
+The current report is stored locally at:
+
+```text
+logs/phase16-full/preflight_current.json
+```
+
+All checks except `power_source` and `independent_backup` passed. The full run
+must not start merely by suppressing those two failures.
 
 The full run must not start until a final combined preflight reruns the model
 smoke and every check reports `pass`.
