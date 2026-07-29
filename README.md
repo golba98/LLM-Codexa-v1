@@ -124,6 +124,18 @@ training state. Resume only trusted local checkpoints:
   --resume checkpoints/RUN_NAME/latest.pt
 ```
 
+Record independent GPU temperature, power, utilization, clocks, and memory
+telemetry during long runs:
+
+```bash
+.venv/bin/python -m scripts.monitor_gpu \
+  --output logs/RUN_NAME/gpu_metrics.jsonl \
+  --interval-seconds 30
+```
+
+Each JSONL record is flushed immediately. Use `--append` only when continuing
+the same run's existing telemetry file.
+
 ## Release export and backup
 
 Export only inference artifacts from the selected checkpoint:
