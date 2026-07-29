@@ -25,7 +25,7 @@ class ReleaseBundle:
 
 
 def verify_release_directory(path: str | Path) -> dict[str, object]:
-    """Verify required files and every checksum declared by SHA256SUMS."""
+    """Verify release checksums and cross-file metadata consistency."""
 
     root = Path(path)
     if not root.is_dir():
@@ -84,6 +84,14 @@ def verify_release_directory(path: str | Path) -> dict[str, object]:
     declared = manifest.get("artifacts")
     if not isinstance(declared, dict):
         raise ValueError("Release manifest artifacts must be an object.")
+    checksummed_artifacts = set(expected_checksums) - {
+        "release_manifest.json"
+    }
+    if set(declared) != checksummed_artifacts:
+        raise ValueError(
+            "Release manifest must declare every checksummed artifact exactly "
+            "once."
+        )
     for filename, checksum in declared.items():
         if (
             not isinstance(filename, str)
@@ -92,6 +100,55 @@ def verify_release_directory(path: str | Path) -> dict[str, object]:
         ):
             raise ValueError(
                 "Release manifest checksums disagree with SHA256SUMS."
+            )
+
+    tokenizer_checksum = file_sha256(root / "tokenizer.json")
+    if manifest.get("tokenizer_sha256") != tokenizer_checksum:
+        raise ValueError(
+            "Release manifest tokenizer checksum does not match tokenizer.json."
+        )
+    source_checksum = manifest.get("source_checkpoint_sha256")
+    if (
+        not isinstance(source_checksum, str)
+        or len(source_checksum) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in source_checksum
+        )
+    ):
+        raise ValueError(
+            "Release manifest source checkpoint checksum is invalid."
+        )
+    source_step = manifest.get("source_checkpoint_optimizer_step")
+    if (
+        not isinstance(source_step, int)
+        or isinstance(source_step, bool)
+        or source_step < 0
+    ):
+        raise ValueError(
+            "Release manifest source checkpoint step is invalid."
+        )
+    training_state = json.loads(
+        (root / "training_state.json").read_text(encoding="utf-8")
+    )
+    if not isinstance(training_state, dict):
+        raise ValueError("Release training state must contain an object.")
+    if training_state.get("optimizer_step") != source_step:
+        raise ValueError(
+            "Release training state does not match the manifest checkpoint "
+            "step."
+        )
+    training_stage = manifest.get("training_stage")
+    if training_stage not in {"pretraining", "supervised_fine_tuning"}:
+        raise ValueError("Release manifest training stage is invalid.")
+    if training_stage == "supervised_fine_tuning":
+        if (
+            not isinstance(manifest.get("chat_template_version"), str)
+            or not isinstance(manifest.get("base_checkpoint"), dict)
+            or not (root / "CHAT_TEMPLATE.md").is_file()
+        ):
+            raise ValueError(
+                "Instruction release lineage or chat template is incomplete."
             )
     return manifest
 
