@@ -37,7 +37,7 @@ def estimate_checkpoint_storage(
     max_steps: int,
     checkpoint_interval: int,
 ) -> CheckpointStorageEstimate:
-    """Estimate AdamW checkpoint retention using 12 bytes per parameter."""
+    """Estimate AdamW checkpoint retention plus serialization overhead."""
 
     for name, value in (
         ("parameter_count", parameter_count),
@@ -50,7 +50,7 @@ def estimate_checkpoint_storage(
             or value <= 0
         ):
             raise ValueError(f"{name} must be a positive integer.")
-    checkpoint_bytes = parameter_count * 12
+    checkpoint_bytes = parameter_count * 12 + 1024 * 1024
     milestone_count = max_steps // checkpoint_interval
     if max_steps % checkpoint_interval:
         milestone_count += 1

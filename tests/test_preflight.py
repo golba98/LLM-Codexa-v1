@@ -17,10 +17,10 @@ def main() -> None:
         max_steps=45_777,
         checkpoint_interval=1_000,
     )
-    assert estimate.checkpoint_bytes == 3_000_000_000
+    assert estimate.checkpoint_bytes == 3_001_048_576
     assert estimate.milestone_count == 46
     assert estimate.retained_checkpoint_count == 49
-    assert estimate.projected_bytes == 147_000_000_000
+    assert estimate.projected_bytes == 147_051_380_224
     assert PreflightCheck("test", "pass", "ok").to_dict()["status"] == "pass"
     try:
         PreflightCheck("test", "unknown", "bad")
