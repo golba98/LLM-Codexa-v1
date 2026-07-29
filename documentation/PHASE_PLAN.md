@@ -447,16 +447,16 @@ fine-tuning the existing model; it must not increase the model parameter count.
 - [x] Verify power stability by explicit operator confirmation
 - [x] Run final preflight test
 - [x] Start full training
-- [ ] Save frequent checkpoints
+- [x] Save frequent checkpoints
 - [ ] Save milestone checkpoints
-- [ ] Run validation periodically
+- [x] Run validation periodically
 - [ ] Generate fixed prompt samples
 - [x] Record throughput
 - [ ] Record downtime
 - [ ] Resume safely after interruptions
 - [ ] Complete target token count
 - [ ] Save final checkpoint
-- [ ] Save best validation checkpoint
+- [x] Save best validation checkpoint
 
 ### Phase 16 completion criteria
 

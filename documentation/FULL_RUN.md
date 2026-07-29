@@ -143,3 +143,9 @@ tokens/second. Peak reserved VRAM was 11,406,409,728 bytes; sustained telemetry
 showed 99% utilization, 65 C, and approximately 250 W. The selected chat
 inference service was stopped to release its GPU allocation, but its checkpoint
 remains preserved.
+
+The first scheduled validation completed at optimizer update 500 with loss
+`5.9895875453948975` over the configured four validation batches. Training loss
+at update 500 was `5.981600314378738`. The resulting `best.pt` and `latest.pt`
+files are each 2,983,115,203 bytes, and both SHA-256 sidecars passed independent
+`sha256sum -c` verification while training continued.
