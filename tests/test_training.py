@@ -13,7 +13,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
-from scripts.train import build_argument_parser, run
+from scripts.train import _record_resume, build_argument_parser, run
 from src.model import LanguageModel, ModelConfig
 from src.token_data import file_sha256
 from src.training import (
@@ -622,6 +622,42 @@ def test_cli_cpu() -> None:
         assert resume_event["tokens_seen"] == 16
         assert resume_event["downtime_seconds"] is not None
         assert resume_event["downtime_seconds"] >= 0
+        assert resume_event["downtime_basis"] == "last_stop"
+
+
+def test_resume_downtime_falls_back_to_last_metric() -> None:
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        logger = JsonlRunLogger(temporary_directory, "power-loss")
+        logger.write_metadata(
+            {
+                "run_name": "power-loss",
+                "run_id": "run-id",
+                "resume_events": [],
+            }
+        )
+        logger.write_metrics(
+            {
+                "optimizer_step": 3,
+                "timestamp_utc": "2026-01-01T00:00:00+00:00",
+            }
+        )
+        _record_resume(
+            logger,
+            timestamp="2026-01-01T00:01:30+00:00",
+            checkpoint=Path("checkpoints/power-loss/latest.pt"),
+            state=TrainingState(
+                optimizer_step=3,
+                micro_step=6,
+                tokens_seen=48,
+            ),
+        )
+        metadata = json.loads(
+            logger.metadata_path.read_text(encoding="utf-8")
+        )
+        event = metadata["resume_events"][0]
+        assert event["downtime_seconds"] == 90.0
+        assert event["downtime_basis"] == "last_metric"
+        logger.close()
 
 
 def test_cuda_precision_paths() -> None:
@@ -668,6 +704,7 @@ def main() -> None:
     test_validation()
     test_logger()
     test_cli_cpu()
+    test_resume_downtime_falls_back_to_last_metric()
     test_cuda_precision_paths()
 
     final = metrics[-1]

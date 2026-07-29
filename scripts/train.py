@@ -207,6 +207,29 @@ def _record_resume(
     if not isinstance(events, list):
         raise ValueError("Run metadata resume_events must be an array.")
     previous_stop = metadata.get("last_stop_timestamp_utc")
+    downtime_basis: str | None = None
+    if not isinstance(previous_stop, str):
+        last_record: dict[str, object] | None = None
+        with logger.metrics_path.open("r", encoding="utf-8") as metrics_file:
+            for line_number, line in enumerate(metrics_file, start=1):
+                try:
+                    value = json.loads(line)
+                except json.JSONDecodeError as error:
+                    raise ValueError(
+                        f"{logger.metrics_path}:{line_number}: malformed "
+                        "metrics JSON."
+                    ) from error
+                if not isinstance(value, dict):
+                    raise ValueError(
+                        f"{logger.metrics_path}:{line_number}: metric must "
+                        "be an object."
+                    )
+                last_record = value
+        if last_record is not None and isinstance(
+            last_record.get("timestamp_utc"), str
+        ):
+            previous_stop = last_record["timestamp_utc"]
+            downtime_basis = "last_metric"
     downtime_seconds: float | None = None
     if isinstance(previous_stop, str):
         try:
@@ -221,6 +244,8 @@ def _record_resume(
             raise ValueError(
                 "Run metadata has an invalid last stop timestamp."
             ) from error
+        if downtime_basis is None:
+            downtime_basis = "last_stop"
     events.append(
         {
             "resumed_at_utc": timestamp,
@@ -229,6 +254,7 @@ def _record_resume(
             "micro_step": state.micro_step,
             "tokens_seen": state.tokens_seen,
             "downtime_seconds": downtime_seconds,
+            "downtime_basis": downtime_basis,
         }
     )
     metadata["resume_events"] = events
