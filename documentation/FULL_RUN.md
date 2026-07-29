@@ -183,3 +183,13 @@ The `best.pt`, `latest.pt`, and rotated `previous.pt` sidecars all passed
 `sha256sum -c`. Training remained healthy immediately afterward at update
 2,559, with finite loss and gradient norm, approximately 29,670 tokens/second,
 99% GPU utilization, 66 C, and 333 GiB free on the primary filesystem.
+
+At update 3,000, training loss was `3.501509800553322` and validation loss
+improved to `3.5382099747657776`. The third numbered milestone,
+`milestones/step_000003000.pt`, has SHA-256
+`c7b62529542df656df2ecd1c4f4dacebef00bca0d4df1dd9f535532e3a0cd862`;
+the refreshed `best.pt` has the same digest. The `best.pt`, `latest.pt`,
+`previous.pt`, and milestone files are each 2,983,115,203 bytes, and every
+sidecar passed `sha256sum -c`. The checkpoint directory then occupied 17 GiB,
+with 330 GiB free on the primary filesystem. Training and telemetry services
+remained active at 99% GPU utilization and 66 C.
