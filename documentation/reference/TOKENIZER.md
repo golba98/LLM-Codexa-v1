@@ -10,6 +10,16 @@ pre-tokenizer, and ByteLevel decoder. Special tokens have fixed IDs:
 | `<eos>` | 2 |
 | `<unk>` | 3 |
 
+Chat fine-tuning appends `<|system|>`, `<|user|>`, `<|assistant|>`, and
+`<|end|>` at IDs 8192 through 8195 without changing the existing BPE rows.
+Create the versioned chat tokenizer with:
+
+```bash
+.venv/bin/python -m scripts.extend_chat_tokenizer \
+  --input checkpoints/tokenizer-fineweb-edu/tokenizer.json \
+  --output-dir checkpoints/tokenizer-fineweb-edu-chat-v3
+```
+
 The tokenizer has no automatic BOS or EOS insertion. Dataset tokenization
 appends exactly one EOS after each document.
 

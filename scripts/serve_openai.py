@@ -6,6 +6,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import sys
+import time
+import uuid
 
 
 if __package__ in {None, ""}:
@@ -28,6 +30,16 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=1235)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--precision", choices=("fp32", "bf16"), default="bf16")
+    parser.add_argument(
+        "--debug-chat",
+        action="store_true",
+        help="Log rendered prompts; may expose private user content.",
+    )
+    parser.add_argument(
+        "--allow-legacy-template",
+        action="store_true",
+        help="Temporarily serve a template-2.0 SFT checkpoint.",
+    )
     return parser
 
 
@@ -60,6 +72,14 @@ def make_handler(engine: CodexaCompletionEngine) -> type[BaseHTTPRequestHandler]
                 },
             )
 
+        def _sse(self, value: object) -> None:
+            self.wfile.write(
+                f"data: {json.dumps(value, ensure_ascii=False)}\n\n".encode(
+                    "utf-8"
+                )
+            )
+            self.wfile.flush()
+
         def do_GET(self) -> None:
             if self.path.rstrip("/") == "/v1/models":
                 self._json(HTTPStatus.OK, model_list_response())
@@ -77,44 +97,61 @@ def make_handler(engine: CodexaCompletionEngine) -> type[BaseHTTPRequestHandler]
                 request = validate_chat_request(
                     json.loads(self.rfile.read(content_length))
                 )
-                result = engine.complete(
-                    request["messages"],
-                    max_tokens=request["max_tokens"],
-                    temperature=request["temperature"],
-                    top_p=request["top_p"],
-                    seed=request["seed"],
-                )
-                response = chat_completion_response(result)
                 if request["stream"]:
+                    completion_id = f"chatcmpl-{uuid.uuid4().hex}"
+                    created = int(time.time())
                     self.send_response(HTTPStatus.OK)
                     self.send_header(
                         "Content-Type",
                         "text/event-stream; charset=utf-8",
                     )
                     self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Connection", "close")
                     self.end_headers()
-                    chunk = {
-                        "id": response["id"],
-                        "object": "chat.completion.chunk",
-                        "created": response["created"],
-                        "model": MODEL_ID,
-                        "choices": [
-                            {
+                    def chunk(delta: dict[str, str], finish_reason=None):
+                        return {
+                            "id": completion_id,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": MODEL_ID,
+                            "choices": [{
                                 "index": 0,
-                                "delta": {
-                                    "role": "assistant",
-                                    "content": result.text,
-                                },
-                                "finish_reason": "stop",
-                            }
-                        ],
-                    }
-                    self.wfile.write(
-                        f"data: {json.dumps(chunk)}\n\n"
-                        "data: [DONE]\n\n".encode("utf-8")
+                                "delta": delta,
+                                "finish_reason": finish_reason,
+                            }],
+                        }
+
+                    self._sse(chunk({"role": "assistant"}))
+
+                    def send_delta(text: str) -> None:
+                        if text:
+                            self._sse(chunk({"content": text}))
+
+                    result = engine.complete(
+                        request["messages"],
+                        max_tokens=request["max_tokens"],
+                        temperature=request["temperature"],
+                        top_p=request["top_p"],
+                        repetition_penalty=request["repetition_penalty"],
+                        seed=request["seed"],
+                        stop=request["stop"],
+                        on_text_delta=send_delta,
                     )
+                    self._sse(chunk({}, result.finish_reason))
+                    self.wfile.write(b"data: [DONE]\n\n")
                     self.wfile.flush()
+                    self.close_connection = True
                     return
+                result = engine.complete(
+                    request["messages"],
+                    max_tokens=request["max_tokens"],
+                    temperature=request["temperature"],
+                    top_p=request["top_p"],
+                    repetition_penalty=request["repetition_penalty"],
+                    seed=request["seed"],
+                    stop=request["stop"],
+                )
+                response = chat_completion_response(result)
                 self._json(HTTPStatus.OK, response)
             except (
                 json.JSONDecodeError,
@@ -147,6 +184,8 @@ def main() -> None:
         arguments.tokenizer,
         device=arguments.device,
         precision=arguments.precision,
+        debug_chat=arguments.debug_chat,
+        allow_legacy_template=arguments.allow_legacy_template,
     )
     server = ThreadingHTTPServer(
         (arguments.host, arguments.port),

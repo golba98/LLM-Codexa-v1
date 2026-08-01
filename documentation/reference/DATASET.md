@@ -120,3 +120,42 @@ license, and SHA-256 checksums. The deterministic seed-42 split contains
 14,221 training and 790 validation records. Dolly's attribution and share-alike
 terms apply to instruction-tuned derivatives; the base pretrained checkpoint
 remains separate.
+
+## OpenAssistant conversations
+
+The next chat SFT preparation also uses the English, quality-filtered message
+trees from [OpenAssistant/oasst1](https://huggingface.co/datasets/OpenAssistant/oasst1),
+which is licensed Apache-2.0. The raw Parquet files are retained under
+`data/raw/huggingface/oasst1/`.
+
+`scripts/prepare_oasst_conversations.py` reconstructs root-to-leaf parent/child
+chains instead of flattening OASST into independent question/answer pairs. It
+keeps only ready-for-export English rows with a quality score of at least 0.7,
+requires at least two user turns, and requires the chain to end with an
+assistant response. The prepared set contains 680 validated multi-turn chains
+with four to six messages each.
+
+## Clean mixed conversation SFT set
+
+`scripts/prepare_clean_chat_training.py` accounts for malformed JSON, invalid
+schemas, missing roles, empty assistant responses, duplicates, placeholders,
+navigation/HTML, advertising/product metadata, embedded role headers, and
+repeated punctuation. It then deduplicates canonical message sequences and
+merges the accepted instruction records with complete OASST chains.
+
+```text
+data/processed/codexa-chat-v3/chat.jsonl
+```
+
+The previous flattened `codexa-chat-conv-v2` artifact is not approved for SFT:
+it contains contextless child replies such as unrelated product answers to
+greetings. Rebuild version 3 and review its per-reason statistics before a
+full run. Statistics are recorded in:
+
+```text
+data/processed/codexa-chat-v3/manifest.json
+```
+
+This is an SFT dataset, not the 1B model's pretraining corpus. The 1B
+from-scratch pretraining run will use a separately pinned, licensed Hugging
+Face text mixture and will document its own token count and checksums.

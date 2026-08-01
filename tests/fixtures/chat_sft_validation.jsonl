@@ -1,0 +1,6 @@
+{"messages":[{"role":"user","content":"Hello there."},{"role":"assistant","content":"Hello!"}],"category":"greeting","source":"codexa-curated-validation"}
+{"messages":[{"role":"user","content":"What is 3 + 3?"},{"role":"assistant","content":"6"}],"category":"factual","source":"codexa-curated-validation"}
+{"messages":[{"role":"user","content":"Why do plants need sunlight? Answer briefly."},{"role":"assistant","content":"Plants use sunlight to make food through photosynthesis."}],"category":"explanation","source":"codexa-curated-validation"}
+{"messages":[{"role":"user","content":"Write Python that returns the square of x."},{"role":"assistant","content":"def square(x):\n    return x * x"}],"category":"coding","source":"codexa-curated-validation"}
+{"messages":[{"role":"user","content":"Answer with one word: ready"},{"role":"assistant","content":"ready"}],"category":"instruction_adherence","source":"codexa-curated-validation"}
+{"messages":[{"role":"user","content":"Remember seven."},{"role":"assistant","content":"I will remember seven."},{"role":"user","content":"Which number?"},{"role":"assistant","content":"Seven."}],"category":"multi_turn","source":"codexa-curated-validation"}

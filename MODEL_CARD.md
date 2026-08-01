@@ -1,8 +1,8 @@
 ---
 model_name: Codexa v1
 architecture: decoder-only Transformer
-parameters: 248565504
-context_length: 2048
+parameters: 920200704
+context_length: 1024
 vocabulary_size: 8192
 language: en
 license: other
@@ -11,8 +11,8 @@ license: other
 # Codexa v1 Model Card
 
 Codexa v1 is an educational decoder-only Transformer implemented and trained
-from scratch with PyTorch. The release candidate uses 34 Transformer blocks,
-hidden size 768, 12 attention heads, SwiGLU feed-forward layers, RMSNorm,
+from scratch with PyTorch. The current 1B-class base uses 24 Transformer blocks,
+hidden size 1,536, 24 attention heads, SwiGLU feed-forward layers, RMSNorm,
 learned position embeddings, and tied token/output embeddings.
 
 ## Training data
@@ -20,7 +20,7 @@ learned position embeddings, and tied token/output embeddings.
 The current experiments use the pinned `roneneldan/TinyStories` dataset,
 cleaned with Unicode NFKC normalization, control-character removal,
 whitespace normalization, and exact SHA-256 deduplication. TinyStories declares
-the CDLA-Sharing-1.0 license. See `documentation/DATASET.md`.
+the CDLA-Sharing-1.0 license. See `documentation/reference/DATASET.md`.
 
 ## Intended use
 
@@ -42,10 +42,12 @@ fixed evaluation selected the final step-7,630 checkpoint with validation loss
 0.9931 and no malformed generated characters. Short-story coherence and local
 sentence flow improved substantially; code completion, factual reliability,
 instruction following, and robust long-context recall remain weak. See
-`documentation/INTERMEDIATE_RUN.md`.
+`documentation/runs/INTERMEDIATE_RUN.md`.
 
-Final FineWeb-Edu pretraining and release evaluation results must be added
-before a weight release is labeled final.
+The inspected 1B-class base completed 15,000 pretraining steps and saw
+491,520,000 tokens. Its best validation loss was 2.856837. These base-model
+metrics do not establish chat quality; the checkpoint must complete canonical
+template-3.0 SFT before it can be served as an assistant.
 
 ## Limitations and risks
 

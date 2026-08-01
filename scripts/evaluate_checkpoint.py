@@ -25,7 +25,7 @@ from src.evaluation import (
     ngram_overlap_rate,
     perplexity_from_loss,
 )
-from src.generate import GenerationConfig, generate_token_ids
+from src.generate import GenerationConfig, generate_sequences
 from src.model import LanguageModel, count_parameters
 from src.token_data import (
     MemmapTokenDataset,
@@ -53,10 +53,10 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--reference-jsonl", type=Path)
     parser.add_argument("--max-reference-documents", type=int, default=1000)
     parser.add_argument("--max-new-tokens", type=int, default=128)
-    parser.add_argument("--temperature", type=float, default=0.8)
-    parser.add_argument("--top-k", type=int, default=50)
-    parser.add_argument("--top-p", type=float, default=0.95)
-    parser.add_argument("--repetition-penalty", type=float, default=1.1)
+    parser.add_argument("--temperature", type=float)
+    parser.add_argument("--top-k", type=int)
+    parser.add_argument("--top-p", type=float)
+    parser.add_argument("--repetition-penalty", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--instruction-template",
@@ -159,19 +159,24 @@ def _build_prompt(
     prompt = entry.get("prompt")
     if isinstance(prompt, str):
         if instruction_template:
-            from src.sft import format_instruction_prompt
+            from src.chat_protocol import (
+                ChatMessage,
+                encode_chat_messages,
+                format_chat_messages,
+            )
 
-            prompt = format_instruction_prompt(prompt, "")
-        token_ids = tokenizer.encode(
-            prompt,
-            add_special_tokens=False,
-        ).ids
-        if instruction_template:
-            if bos_token_id is None:
-                raise ValueError(
-                    "Instruction-template prompts require a BOS token ID."
-                )
-            token_ids.insert(0, bos_token_id)
+            messages = (ChatMessage("user", prompt),)
+            prompt = format_chat_messages(messages, add_generation_prompt=True)
+            token_ids, _ = encode_chat_messages(
+                messages,
+                tokenizer=tokenizer,
+                add_generation_prompt=True,
+            )
+        else:
+            token_ids = tokenizer.encode(
+                prompt,
+                add_special_tokens=False,
+            ).ids
         return prompt, token_ids
 
     if instruction_template:
@@ -309,6 +314,20 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
     bos_token_id = tokenizer.token_to_id(BOS_TOKEN)
     if eos_token_id != 2 or bos_token_id != 1:
         raise ValueError("Tokenizer must use <bos>=1 and <eos>=2.")
+    if arguments.instruction_template:
+        from src.chat_protocol import (
+            CHAT_TEMPLATE_VERSION,
+            validate_chat_tokenizer,
+        )
+
+        if (
+            checkpoint.training_stage != "supervised_fine_tuning"
+            or checkpoint.chat_template_version != CHAT_TEMPLATE_VERSION
+        ):
+            raise ValueError(
+                "Instruction-template evaluation requires a compatible chat SFT checkpoint."
+            )
+        validate_chat_tokenizer(tokenizer)
 
     validation_loss: float | None = None
     validation_tokens = 0
@@ -380,13 +399,21 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             arguments.max_reference_documents,
         )
     )
+    temperature = arguments.temperature
+    if temperature == 0:
+        temperature = None
+    if temperature is None and (
+        arguments.top_k is not None
+        or arguments.top_p not in {None, 1, 1.0}
+    ):
+        raise ValueError("top-k/top-p filtering requires positive-temperature sampling.")
     generation_config = GenerationConfig(
         max_new_tokens=arguments.max_new_tokens,
-        temperature=arguments.temperature,
+        temperature=temperature,
         top_k=arguments.top_k,
         top_p=arguments.top_p,
         repetition_penalty=arguments.repetition_penalty,
-        do_sample=True,
+        do_sample=temperature is not None,
         seed=arguments.seed,
     )
     samples: list[dict[str, object]] = []
@@ -399,15 +426,37 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             bos_token_id=bos_token_id,
         )
         prompt_ids = prompt_ids or [bos_token_id]
-        generated = generate_token_ids(
+        stop_sequences = ()
+        if arguments.instruction_template:
+            from src.chat_protocol import (
+                ASSISTANT_TOKEN,
+                END_TOKEN,
+                SPECIAL_TOKEN_IDS,
+                SYSTEM_TOKEN,
+                USER_TOKEN,
+            )
+
+            stop_sequences = tuple(
+                (SPECIAL_TOKEN_IDS[token],)
+                for token in (
+                    END_TOKEN,
+                    SYSTEM_TOKEN,
+                    USER_TOKEN,
+                    ASSISTANT_TOKEN,
+                )
+            )
+        sequence = generate_sequences(
             model,
             torch.tensor([prompt_ids], dtype=torch.long, device=device),
             eos_token_id=eos_token_id,
+            pad_token_id=tokenizer.token_to_id("<pad>"),
+            stop_sequences=stop_sequences,
             config=generation_config,
-        )[0].tolist()
-        text = tokenizer.decode(generated, skip_special_tokens=True)
+        ).sequences[0]
+        continuation_ids = list(sequence.visible_token_ids)
+        text = tokenizer.decode(continuation_ids, skip_special_tokens=True)
         continuation = tokenizer.decode(
-            generated[len(prompt_ids) :],
+            continuation_ids,
             skip_special_tokens=True,
         )
         expected_terms = [
@@ -423,7 +472,10 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             "prompt_token_count": len(prompt_ids),
             "text": text,
             "continuation": continuation,
-            "generated_token_count": len(generated) - len(prompt_ids),
+            "generated_token_count": sequence.generated_token_count,
+            "finish_reason": sequence.finish_reason,
+            "termination_cause": sequence.termination_cause,
+            "terminating_token_id": sequence.terminating_token_id,
             "expected_terms": expected_terms,
             "expected_term_search_characters": (
                 expected_term_search_characters

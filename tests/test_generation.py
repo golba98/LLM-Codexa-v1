@@ -19,7 +19,9 @@ from src.config import ProjectConfig, TrainingConfig
 from src.generate import (
     GenerationConfig,
     apply_repetition_penalty,
+    ban_repeated_ngrams,
     filter_logits,
+    generate_sequences,
     generate_token_ids,
 )
 from src.model import LanguageModel, ModelConfig
@@ -102,6 +104,14 @@ def test_filters_and_penalty() -> None:
     )
     assert penalized.tolist() == [[2.0, -8.0, 2.0]]
 
+    guarded = ban_repeated_ngrams(
+        torch.tensor([[4.0, 3.0, 2.0]]),
+        torch.tensor([[1, 2, 1, 2]]),
+        3,
+    )
+    assert torch.isneginf(guarded[0, 1])
+    assert torch.isfinite(guarded[0, 0])
+
 
 def test_greedy_eos_and_context() -> None:
     model = ScriptedModel(next_token_id=2)
@@ -125,7 +135,7 @@ def test_greedy_eos_and_context() -> None:
     assert limited.shape == (1, 3)
 
 
-def test_sampling_is_seeded(device: torch.device) -> None:
+def _sampling_is_seeded(device: torch.device) -> None:
     model = ScriptedModel(next_token_id=4).to(device)
     prompt = torch.tensor([[1]], dtype=torch.long, device=device)
     config = GenerationConfig(
@@ -140,6 +150,40 @@ def test_sampling_is_seeded(device: torch.device) -> None:
     second = generate_token_ids(model, prompt, eos_token_id=2, config=config)
     assert torch.equal(first, second)
     assert first.device.type == device.type
+
+
+def test_sampling_is_seeded() -> None:
+    _sampling_is_seeded(torch.device("cpu"))
+
+
+def test_stop_tokens_and_padded_batch() -> None:
+    stop_model = ScriptedModel(next_token_id=5, vocab_size=8)
+    stopped = generate_sequences(
+        stop_model,
+        torch.tensor([[1, 4]], dtype=torch.long),
+        eos_token_id=2,
+        stop_sequences=((5,),),
+        config=GenerationConfig(max_new_tokens=4),
+    ).sequences[0]
+    assert stopped.token_ids == (5,)
+    assert stopped.visible_token_ids == ()
+    assert stopped.finish_reason == "stop"
+    assert stopped.terminating_token_id == 5
+
+    length_model = ScriptedModel(next_token_id=4, context_length=8)
+    padded = torch.tensor([[1, 6, 0], [1, 0, 0]], dtype=torch.long)
+    mask = torch.tensor([[1, 1, 0], [1, 0, 0]], dtype=torch.bool)
+    batch = generate_sequences(
+        length_model,
+        padded,
+        attention_mask=mask,
+        eos_token_id=2,
+        pad_token_id=0,
+        config=GenerationConfig(max_new_tokens=2),
+    )
+    assert len(batch.sequences) == 2
+    assert all(sequence.token_ids == (4, 4) for sequence in batch.sequences)
+    assert all(sequence.finish_reason == "length" for sequence in batch.sequences)
 
 
 def _write_tokenizer(root: Path) -> Path:
@@ -279,7 +323,9 @@ def test_checkpoint_cli_generation() -> None:
         assert release_output["release_directory"] == str(release_directory)
         assert release_output["checkpoint"] is None
         assert release_output["training_stage"] == "pretraining"
-        instruction_output = run(
+        assert_raises(
+            ValueError,
+            run,
             build_argument_parser().parse_args(
                 [
                     "--release-dir",
@@ -294,15 +340,8 @@ def test_checkpoint_cli_generation() -> None:
                     "1",
                     "--greedy",
                 ]
-            )
+            ),
         )
-        assert instruction_output["prompt"] == (
-            "User: Name a color.\n"
-            "Context: Use a short answer.\n"
-            "Assistant:"
-        )
-        assert instruction_output["instruction"] == "Name a color."
-        assert instruction_output["prompt_token_ids"][0] == 1
         sft_payload = dict(payload)
         sft_payload["training_stage"] = "supervised_fine_tuning"
         sft_payload["chat_template_version"] = "1.0"
@@ -317,22 +356,15 @@ def test_checkpoint_cli_generation() -> None:
             "generation-sft",
         ).save(sft_payload)
         sft_release = root / "release-sft"
-        export_release(
+        assert_raises(
+            ValueError,
+            export_release,
             SimpleNamespace(
                 checkpoint=sft_checkpoint,
                 tokenizer=tokenizer_path,
                 output_dir=sft_release,
-            )
+            ),
         )
-        sft_manifest = json.loads(
-            sft_release.joinpath("release_manifest.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        assert sft_manifest["training_stage"] == "supervised_fine_tuning"
-        assert sft_manifest["chat_template_version"] == "1.0"
-        assert "path" not in sft_manifest["base_checkpoint"]
-        assert sft_release.joinpath("CHAT_TEMPLATE.md").is_file()
         released_tokenizer = release_directory / "tokenizer.json"
         released_tokenizer.write_bytes(
             released_tokenizer.read_bytes() + b"\n"
@@ -358,11 +390,12 @@ def main() -> None:
     test_generation_config_validation()
     test_filters_and_penalty()
     test_greedy_eos_and_context()
-    test_sampling_is_seeded(torch.device("cpu"))
+    test_sampling_is_seeded()
+    test_stop_tokens_and_padded_batch()
     test_checkpoint_cli_generation()
     cuda_result = "skipped"
     if torch.cuda.is_available():
-        test_sampling_is_seeded(torch.device("cuda"))
+        _sampling_is_seeded(torch.device("cuda"))
         cuda_result = "passed"
     print("CPU generation: passed")
     print(f"CUDA generation: {cuda_result}")

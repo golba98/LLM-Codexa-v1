@@ -17,12 +17,18 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.generate import _checkpoint_model_config
+from src.chat_protocol import (
+    CHAT_TEMPLATE_VERSION,
+    chat_special_token_map,
+    validate_chat_tokenizer,
+)
 from src.checkpointing import (
     load_model_checkpoint,
     verify_checkpoint_checksum,
 )
 from src.model import LanguageModel, count_parameters
 from src.token_data import file_sha256
+from src.tokenizer import load_tokenizer
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -75,6 +81,12 @@ def run(arguments: argparse.Namespace) -> Path:
         and checkpoint.tokenizer_sha256 != tokenizer_checksum
     ):
         raise ValueError("Tokenizer checksum does not match the checkpoint.")
+    if checkpoint.training_stage == "supervised_fine_tuning":
+        if checkpoint.chat_template_version != CHAT_TEMPLATE_VERSION:
+            raise ValueError("SFT release uses an incompatible chat template.")
+        if checkpoint.chat_special_token_ids != chat_special_token_map():
+            raise ValueError("SFT release is missing canonical chat-token IDs.")
+        validate_chat_tokenizer(load_tokenizer(arguments.tokenizer))
 
     arguments.output_dir.parent.mkdir(parents=True, exist_ok=True)
     temporary_directory = Path(
@@ -110,10 +122,10 @@ def run(arguments: argparse.Namespace) -> Path:
             if source.is_file():
                 shutil.copy2(source, temporary_directory / filename)
         if checkpoint.training_stage == "supervised_fine_tuning":
-            chat_template = Path("documentation/CHAT_TEMPLATE.md")
+            chat_template = Path("documentation/reference/CHAT_TEMPLATE.md")
             if not chat_template.is_file():
                 raise FileNotFoundError(
-                    "SFT release requires documentation/CHAT_TEMPLATE.md."
+                    "SFT release requires documentation/reference/CHAT_TEMPLATE.md."
                 )
             shutil.copy2(
                 chat_template,
@@ -143,6 +155,7 @@ def run(arguments: argparse.Namespace) -> Path:
             "source_checkpoint_run_id": checkpoint.run_id,
             "training_stage": checkpoint.training_stage,
             "chat_template_version": checkpoint.chat_template_version,
+            "chat_special_token_ids": checkpoint.chat_special_token_ids,
             "base_checkpoint": base_checkpoint_lineage,
             "tokenizer_sha256": tokenizer_checksum,
             "artifacts": checksums,

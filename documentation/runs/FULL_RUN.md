@@ -8,7 +8,7 @@ Phase 16 uses these immutable inputs:
 - Configuration SHA-256:
   `8d8ce9a00bb5bb6cffeae977c0c19d91aa804ddfe26a8778ea149277fc631841`
 - Clean corpus: four pinned FineWeb-Edu `sample-10BT` shards documented in
-  `documentation/DATASET.md`
+  `documentation/reference/DATASET.md`
 - Tokenizer vocabulary: 8,192
 - Tokenizer SHA-256:
   `6b26d3c98d8782298119875c368a69fdccbff03cca6fbfa1fc0851b0f3f8ef0c`

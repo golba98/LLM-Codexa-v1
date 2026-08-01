@@ -11,25 +11,18 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from tokenizers import Tokenizer
 
-from src.tokenizer import BOS_TOKEN, EOS_TOKEN, PAD_TOKEN
+from src.chat_protocol import (
+    CHAT_TEMPLATE_VERSION,
+    ChatMessage,
+    encode_chat_messages,
+    format_chat_messages,
+    validate_chat_messages,
+    validate_chat_tokenizer,
+)
+from src.tokenizer import PAD_TOKEN
 
 
-CHAT_TEMPLATE_VERSION = "2.0"
 IGNORE_INDEX = -100
-CHAT_ROLES = ("system", "user", "assistant")
-ROLE_LABELS = {
-    "system": "System",
-    "user": "User",
-    "assistant": "Assistant",
-}
-
-
-@dataclass(frozen=True)
-class ChatMessage:
-    """One validated message in a Codexa conversation."""
-
-    role: str
-    content: str
 
 
 @dataclass(frozen=True)
@@ -40,6 +33,35 @@ class ChatRecord:
     category: str = "unknown"
     source: str = "unknown"
     conversation_id: str | None = None
+
+
+@dataclass
+class ChatLoadStatistics:
+    """Deterministic accepted and removed-record counts for chat JSONL."""
+
+    input_lines: int = 0
+    accepted_records: int = 0
+    malformed_json: int = 0
+    invalid_schema: int = 0
+    missing_or_invalid_roles: int = 0
+    empty_responses: int = 0
+    duplicate_examples: int = 0
+
+    @property
+    def removed_samples(self) -> int:
+        return self.input_lines - self.accepted_records
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "input_lines": self.input_lines,
+            "accepted_records": self.accepted_records,
+            "malformed_json": self.malformed_json,
+            "invalid_schema": self.invalid_schema,
+            "missing_or_invalid_roles": self.missing_or_invalid_roles,
+            "empty_responses": self.empty_responses,
+            "duplicate_examples": self.duplicate_examples,
+            "removed_samples": self.removed_samples,
+        }
 
 
 @dataclass(frozen=True)
@@ -63,67 +85,6 @@ class InstructionRecord:
             category=self.category,
             source="databricks-dolly-15k",
         )
-
-
-def validate_chat_messages(
-    messages: Sequence[ChatMessage],
-    *,
-    require_assistant_response: bool,
-) -> None:
-    """Validate role order for training records or inference prompts."""
-
-    if not messages:
-        raise ValueError("Chat messages must not be empty.")
-    system_count = 0
-    expected = "user"
-    for index, message in enumerate(messages):
-        if message.role not in CHAT_ROLES:
-            raise ValueError(
-                f"messages[{index}].role must be system, user, or assistant."
-            )
-        if not isinstance(message.content, str) or not message.content.strip():
-            raise ValueError(
-                f"messages[{index}].content must be a non-empty string."
-            )
-        if message.role == "system":
-            system_count += 1
-            if index != 0 or system_count > 1:
-                raise ValueError(
-                    "A system message is allowed only as the first message."
-                )
-            continue
-        if message.role != expected:
-            raise ValueError(
-                f"messages[{index}].role must be {expected}; "
-                f"received {message.role}."
-            )
-        expected = "assistant" if message.role == "user" else "user"
-    if require_assistant_response and messages[-1].role != "assistant":
-        raise ValueError("A training conversation must end with an assistant.")
-
-
-def format_chat_messages(
-    messages: Sequence[ChatMessage],
-    *,
-    add_generation_prompt: bool = False,
-) -> str:
-    """Render the canonical versioned chat template."""
-
-    validate_chat_messages(
-        messages,
-        require_assistant_response=not add_generation_prompt,
-    )
-    if add_generation_prompt and messages[-1].role != "user":
-        raise ValueError(
-            "A generation prompt must end with the latest user message."
-        )
-    rendered = [
-        f"{ROLE_LABELS[message.role]}: {message.content.strip()}"
-        for message in messages
-    ]
-    if add_generation_prompt:
-        rendered.append("Assistant:")
-    return "\n".join(rendered)
 
 
 def format_instruction_prompt(instruction: str, context: str = "") -> str:
@@ -176,6 +137,114 @@ def _parse_chat_messages(
     except ValueError as error:
         raise ValueError(f"{path}:{line_number}: {error}") from error
     return tuple(messages)
+
+
+def _chat_record_from_value(
+    value: object,
+    *,
+    path: Path,
+    line_number: int,
+) -> ChatRecord:
+    if not isinstance(value, dict):
+        raise ValueError(f"{path}:{line_number}: row must be an object.")
+    if "messages" in value:
+        messages = _parse_chat_messages(
+            value["messages"],
+            path=path,
+            line_number=line_number,
+        )
+        category = value.get("category", "unknown")
+        source = value.get("source", path.name)
+        conversation_id = value.get("conversation_id")
+        if not isinstance(category, str) or not category.strip():
+            raise ValueError(f"{path}:{line_number}: category must be non-empty.")
+        if not isinstance(source, str) or not source.strip():
+            raise ValueError(f"{path}:{line_number}: source must be non-empty.")
+        if conversation_id is not None and not isinstance(conversation_id, str):
+            raise ValueError(
+                f"{path}:{line_number}: conversation_id must be a string or null."
+            )
+        return ChatRecord(
+            messages=messages,
+            category=category.strip(),
+            source=source.strip(),
+            conversation_id=conversation_id,
+        )
+    instruction = value.get("instruction")
+    context = value.get("context", "")
+    response = value.get("response")
+    category = value.get("category", "unknown")
+    if not isinstance(instruction, str) or not instruction.strip():
+        raise ValueError(f"{path}:{line_number}: instruction must be non-empty.")
+    if not isinstance(context, str):
+        raise ValueError(f"{path}:{line_number}: context must be a string.")
+    if not isinstance(response, str) or not response.strip():
+        raise ValueError(f"{path}:{line_number}: response must be non-empty.")
+    if not isinstance(category, str) or not category.strip():
+        raise ValueError(f"{path}:{line_number}: category must be non-empty.")
+    return InstructionRecord(
+        instruction=instruction.strip(),
+        context=context.strip(),
+        response=response.strip(),
+        category=category.strip(),
+    ).to_chat_record()
+
+
+def load_chat_records_with_statistics(
+    paths: Sequence[str | Path],
+) -> tuple[list[ChatRecord], ChatLoadStatistics]:
+    """Load all valid rows while accounting for every rejected sample."""
+
+    statistics = ChatLoadStatistics()
+    records: list[ChatRecord] = []
+    seen: set[str] = set()
+    for path_value in paths:
+        path = Path(path_value)
+        with path.open("r", encoding="utf-8") as input_file:
+            for line_number, line in enumerate(input_file, start=1):
+                statistics.input_lines += 1
+                try:
+                    value = json.loads(line)
+                except json.JSONDecodeError:
+                    statistics.malformed_json += 1
+                    continue
+                try:
+                    record = _chat_record_from_value(
+                        value,
+                        path=path,
+                        line_number=line_number,
+                    )
+                except ValueError as error:
+                    message = str(error).lower()
+                    raw_messages = (
+                        value.get("messages") if isinstance(value, dict) else None
+                    )
+                    has_empty_assistant = isinstance(raw_messages, list) and any(
+                        isinstance(item, dict)
+                        and item.get("role") == "assistant"
+                        and (
+                            not isinstance(item.get("content"), str)
+                            or not item["content"].strip()
+                        )
+                        for item in raw_messages
+                    )
+                    if "response must be non-empty" in message or has_empty_assistant:
+                        statistics.empty_responses += 1
+                    elif "role" in message or "must end with assistant" in message:
+                        statistics.missing_or_invalid_roles += 1
+                    else:
+                        statistics.invalid_schema += 1
+                    continue
+                identity = hashlib.sha256(
+                    format_chat_messages(record.messages).encode("utf-8")
+                ).hexdigest()
+                if identity in seen:
+                    statistics.duplicate_examples += 1
+                    continue
+                seen.add(identity)
+                records.append(record)
+                statistics.accepted_records += 1
+    return records, statistics
 
 
 def load_chat_records(path: str | Path) -> list[ChatRecord]:
@@ -335,12 +404,12 @@ def split_instruction_records(
         raise ValueError("seed must be a non-negative integer.")
     training: list[InstructionRecord] | list[ChatRecord] = []
     validation: list[InstructionRecord] | list[ChatRecord] = []
-    for ordinal, record in enumerate(records):
+    for record in records:
         if isinstance(record, ChatRecord):
             record_identity = format_chat_messages(record.messages)
         else:
             record_identity = f"{record.instruction}\0{record.response}"
-        identity = f"{seed}\0{ordinal}\0{record_identity}"
+        identity = f"{seed}\0{record_identity}"
         digest = hashlib.sha256(identity.encode("utf-8")).digest()
         value = int.from_bytes(digest[:8], "big") / 2**64
         (validation if value < validation_ratio else training).append(record)
@@ -363,10 +432,8 @@ class InstructionDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     ) -> None:
         if context_length <= 2:
             raise ValueError("context_length must be greater than 2.")
-        bos_id = tokenizer.token_to_id(BOS_TOKEN)
-        eos_id = tokenizer.token_to_id(EOS_TOKEN)
-        if bos_id != 1 or eos_id != 2:
-            raise ValueError("Tokenizer must use <bos>=1 and <eos>=2.")
+        validate_chat_tokenizer(tokenizer)
+        self.removed_overlength = 0
         self.examples: list[tuple[torch.Tensor, torch.Tensor]] = []
         for value in records:
             record = (
@@ -374,29 +441,13 @@ class InstructionDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
                 if isinstance(value, InstructionRecord)
                 else value
             )
-            messages = list(record.messages)
-            while True:
-                input_ids, labels = _encode_chat_record(
-                    messages,
-                    tokenizer=tokenizer,
-                    bos_id=bos_id,
-                    eos_id=eos_id,
-                )
-                if len(input_ids) <= context_length + 1:
-                    break
-                if len(messages) > 2:
-                    if messages[0].role == "system":
-                        del messages[1:3]
-                    else:
-                        del messages[:2]
-                    continue
-                messages = _truncate_single_exchange(
-                    messages,
-                    tokenizer=tokenizer,
-                    context_length=context_length,
-                    bos_id=bos_id,
-                    eos_id=eos_id,
-                )
+            input_ids, labels = _encode_chat_record(
+                record.messages,
+                tokenizer=tokenizer,
+            )
+            if len(input_ids) > context_length + 1:
+                self.removed_overlength += 1
+                continue
             if not any(label != IGNORE_INDEX for label in labels):
                 raise ValueError("Chat example has no assistant target tokens.")
             if (
@@ -447,73 +498,13 @@ def _encode_chat_record(
     messages: Sequence[ChatMessage],
     *,
     tokenizer: Tokenizer,
-    bos_id: int,
-    eos_id: int,
 ) -> tuple[list[int], list[int]]:
     """Encode one conversation and mask every non-assistant token."""
 
-    validate_chat_messages(messages, require_assistant_response=True)
-    input_ids = [bos_id]
-    labels = [IGNORE_INDEX]
-    for index, message in enumerate(messages):
-        separator = "" if index == 0 else "\n"
-        prefix = f"{separator}{ROLE_LABELS[message.role]}:"
-        prefix_ids = tokenizer.encode(
-            prefix,
-            add_special_tokens=False,
-        ).ids
-        content_ids = tokenizer.encode(
-            f" {message.content.strip()}",
-            add_special_tokens=False,
-        ).ids
-        input_ids.extend(prefix_ids)
-        input_ids.extend(content_ids)
-        labels.extend([IGNORE_INDEX] * len(prefix_ids))
-        labels.extend(
-            content_ids
-            if message.role == "assistant"
-            else [IGNORE_INDEX] * len(content_ids)
-        )
-    input_ids.append(eos_id)
-    labels.append(eos_id)
-    return input_ids, labels
-
-
-def _truncate_single_exchange(
-    messages: Sequence[ChatMessage],
-    *,
-    tokenizer: Tokenizer,
-    context_length: int,
-    bos_id: int,
-    eos_id: int,
-) -> list[ChatMessage]:
-    """Deterministically shorten one exchange while preserving both roles."""
-
-    mutable = list(messages)
-    if mutable[0].role == "system":
-        mutable.pop(0)
-    if len(mutable) != 2:
-        raise ValueError("Unable to reduce an oversized chat conversation.")
-    user, assistant = mutable
-    while True:
-        input_ids, _ = _encode_chat_record(
-            mutable,
-            tokenizer=tokenizer,
-            bos_id=bos_id,
-            eos_id=eos_id,
-        )
-        if len(input_ids) <= context_length + 1:
-            return mutable
-        if len(user.content) > 1:
-            keep = max(1, len(user.content) * 3 // 4)
-            user = ChatMessage("user", user.content[-keep:])
-            mutable[0] = user
-            continue
-        if len(assistant.content) > 1:
-            keep = max(1, len(assistant.content) * 3 // 4)
-            assistant = ChatMessage("assistant", assistant.content[:keep])
-            mutable[1] = assistant
-            continue
-        raise ValueError(
-            "Chat role prefixes do not fit within the configured context length."
-        )
+    return encode_chat_messages(
+        messages,
+        tokenizer=tokenizer,
+        add_generation_prompt=False,
+        assistant_only_labels=True,
+        ignore_index=IGNORE_INDEX,
+    )

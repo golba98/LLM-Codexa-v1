@@ -8,7 +8,12 @@ import os
 from pathlib import Path
 import tempfile
 
-from src.sft import ChatMessage, ChatRecord, load_chat_records
+from src.sft import (
+    CHAT_TEMPLATE_VERSION,
+    ChatMessage,
+    ChatRecord,
+    load_chat_records,
+)
 from src.token_data import file_sha256
 
 
@@ -41,7 +46,7 @@ def augment_with_context_turn(
     if not 0 <= ratio <= 1:
         raise ValueError("multi_turn_ratio must be in [0, 1].")
     identity = (
-        f"{seed}\0{ordinal}\0"
+        f"{seed}\0"
         + "\0".join(
             f"{message.role}\0{message.content}" for message in record.messages
         )
@@ -161,7 +166,7 @@ def prepare_chat_dataset(
     manifest: dict[str, object] = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "format_version": CHAT_DATA_FORMAT_VERSION,
-        "chat_template_version": "2.0",
+        "chat_template_version": CHAT_TEMPLATE_VERSION,
         "dataset_name": dataset_name,
         "license": license_name,
         "seed": seed,

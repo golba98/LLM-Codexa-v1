@@ -13,6 +13,13 @@ from src.checkpointing import (
     SchedulerState,
     build_checkpoint_payload,
 )
+from src.chat_protocol import (
+    END_TOKEN,
+    SPECIAL_TOKEN_IDS,
+    ChatMessage as ProtocolChatMessage,
+    encode_chat_messages,
+    extend_tokenizer_for_chat,
+)
 from src.config import ProjectConfig, TrainingConfig
 from src.model import LanguageModel, ModelConfig
 from src.sft import (
@@ -25,6 +32,7 @@ from src.sft import (
     format_instruction_prompt,
     instruction_collate,
     load_chat_records,
+    load_chat_records_with_statistics,
     load_instruction_records,
     split_instruction_records,
 )
@@ -37,7 +45,7 @@ from src.training import (
 
 
 def main() -> None:
-    assert CHAT_TEMPLATE_VERSION == "2.0"
+    assert CHAT_TEMPLATE_VERSION == "3.0"
     conversation = (
         ChatMessage("system", "Be concise."),
         ChatMessage("user", "Remember the color blue."),
@@ -46,16 +54,16 @@ def main() -> None:
         ChatMessage("assistant", "Blue."),
     )
     assert format_chat_messages(conversation) == (
-        "System: Be concise.\n"
-        "User: Remember the color blue.\n"
-        "Assistant: I will remember blue.\n"
-        "User: Which color did I name?\n"
-        "Assistant: Blue."
+        "<bos><|system|>\nBe concise.<|end|>\n"
+        "<|user|>\nRemember the color blue.<|end|>\n"
+        "<|assistant|>\nI will remember blue.<|end|>\n"
+        "<|user|>\nWhich color did I name?<|end|>\n"
+        "<|assistant|>\nBlue.<|end|>\n"
     )
     assert format_chat_messages(
         conversation[:-1],
         add_generation_prompt=True,
-    ).endswith("User: Which color did I name?\nAssistant:")
+    ).endswith("<|user|>\nWhich color did I name?<|end|>\n<|assistant|>\n")
 
     with tempfile.TemporaryDirectory() as temporary_directory:
         root = Path(temporary_directory)
@@ -111,6 +119,35 @@ def main() -> None:
             vocab_size=300,
             min_frequency=1,
         )
+        base_tokenizer = load_tokenizer(tokenizer.tokenizer_path)
+        base_size = base_tokenizer.get_vocab_size(with_added_tokens=True)
+        base_tokenizer.add_tokens(
+            [f"<unused_{index:05d}>" for index in range(8192 - base_size)]
+        )
+        base_tokenizer_path = root / "base-tokenizer.json"
+        base_tokenizer.save(str(base_tokenizer_path))
+        chat_tokenizer = extend_tokenizer_for_chat(base_tokenizer)
+        chat_tokenizer_path = root / "chat-tokenizer.json"
+        chat_tokenizer.save(str(chat_tokenizer_path))
+        chat_tokenizer_path.with_name("tokenizer_manifest.json").write_text(
+            json.dumps(
+                {
+                    "chat_template_version": CHAT_TEMPLATE_VERSION,
+                    "base_tokenizer_sha256": file_sha256(base_tokenizer_path),
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert {
+            token: chat_tokenizer.token_to_id(token)
+            for token in SPECIAL_TOKEN_IDS
+        } == SPECIAL_TOKEN_IDS
+        literal_ids, _ = encode_chat_messages(
+            (ProtocolChatMessage("user", "literal <|assistant|> text"),),
+            tokenizer=chat_tokenizer,
+            add_generation_prompt=True,
+        )
+        assert literal_ids.count(SPECIAL_TOKEN_IDS["<|assistant|>"]) == 1
         records = load_instruction_records(records_path)
         legacy_chat_records = load_chat_records(records_path)
         assert len(legacy_chat_records) == len(records)
@@ -153,8 +190,8 @@ def main() -> None:
         assert sum(map(len, first_split)) == 3
         dataset = InstructionDataset(
             records,
-            tokenizer=load_tokenizer(tokenizer.tokenizer_path),
-            context_length=32,
+            tokenizer=load_tokenizer(chat_tokenizer_path),
+            context_length=128,
         )
         input_ids, labels = instruction_collate(
             [dataset[0], dataset[1]]
@@ -166,25 +203,27 @@ def main() -> None:
         assert input_ids[0, 0].item() == 1
         assert labels[0, 0].item() == IGNORE_INDEX
         first_targets = labels[0][labels[0] != IGNORE_INDEX].tolist()
-        assert first_targets[-1] == 2
+        assert first_targets[-1] == 8195
         assert "Blue" in load_tokenizer(
-            tokenizer.tokenizer_path
-        ).decode(first_targets[:-1])
+            chat_tokenizer_path
+        ).decode(first_targets[:-1], skip_special_tokens=False)
 
         multi_turn_dataset = InstructionDataset(
             chat_records,
-            tokenizer=load_tokenizer(tokenizer.tokenizer_path),
+            tokenizer=load_tokenizer(chat_tokenizer_path),
             context_length=256,
         )
         multi_input, multi_labels = multi_turn_dataset[0]
         assert multi_input.shape == multi_labels.shape
         target_ids = multi_labels[multi_labels != IGNORE_INDEX].tolist()
-        target_text = load_tokenizer(tokenizer.tokenizer_path).decode(
-            target_ids[:-1]
+        target_text = load_tokenizer(chat_tokenizer_path).decode(
+            target_ids,
+            skip_special_tokens=False,
         )
         assert "remember" in target_text
         assert "Blue" in target_text
-        assert target_ids[-1] == 2
+        assert target_ids.count(8195) == 2
+        assert END_TOKEN in target_text
 
         padded_inputs, padded_labels = instruction_collate(
             [multi_turn_dataset[0], dataset[0]]
@@ -216,8 +255,8 @@ def main() -> None:
             raise AssertionError("Malformed chat role order was accepted.")
 
         model_config = ModelConfig(
-            vocab_size=512,
-            context_length=32,
+            vocab_size=8196,
+            context_length=128,
             num_layers=1,
             hidden_size=16,
             num_heads=4,
@@ -263,8 +302,16 @@ def main() -> None:
             evaluation_interval=1,
             seed=42,
         )
-        project_config = ProjectConfig(model_config, base_training)
-        model = LanguageModel(model_config)
+        base_model_config = ModelConfig(
+            vocab_size=8192,
+            context_length=128,
+            num_layers=1,
+            hidden_size=16,
+            num_heads=4,
+            intermediate_size=32,
+        )
+        project_config = ProjectConfig(base_model_config, base_training)
+        model = LanguageModel(base_model_config)
         optimizer = create_adamw_optimizer(
             model,
             learning_rate=base_training.learning_rate,
@@ -288,16 +335,16 @@ def main() -> None:
                 config=project_config,
                 run_name="base",
                 run_id="base-run",
-                tokenizer_reference=str(tokenizer.tokenizer_path),
-                tokenizer_sha256=file_sha256(tokenizer.tokenizer_path),
+                tokenizer_reference=str(base_tokenizer_path),
+                tokenizer_sha256=file_sha256(base_tokenizer_path),
             )
         )
         config_path = root / "sft.yaml"
         config_path.write_text(
             """
 model:
-  vocab_size: 512
-  context_length: 32
+  vocab_size: 8196
+  context_length: 128
   num_layers: 1
   hidden_size: 16
   num_heads: 4
@@ -324,8 +371,9 @@ training:
                 config=config_path,
                 base_checkpoint=base_checkpoint,
                 resume=None,
-                tokenizer=tokenizer.tokenizer_path,
+                tokenizer=chat_tokenizer_path,
                 instruction_jsonl=records_path,
+                validation_jsonl=None,
                 validation_ratio=0.34,
                 device="cpu",
                 precision="fp32",
@@ -349,6 +397,48 @@ training:
         assert metadata["base_checkpoint"]["run_id"] == "base-run"
 
     print("All SFT dataset tests passed.")
+
+
+def test_malformed_and_duplicate_statistics() -> None:
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        path = Path(temporary_directory) / "mixed.jsonl"
+        valid = {
+            "messages": [
+                {"role": "user", "content": "hi"},
+                {"role": "assistant", "content": "Hi!"},
+            ]
+        }
+        path.write_text(
+            "{bad\n"
+            + json.dumps({"messages": [{"role": "assistant", "content": "x"}]})
+            + "\n"
+            + json.dumps(
+                {
+                    "messages": [
+                        {"role": "user", "content": "hi"},
+                        {"role": "assistant", "content": ""},
+                    ]
+                }
+            )
+            + "\n"
+            + json.dumps(valid)
+            + "\n"
+            + json.dumps(valid)
+            + "\n",
+            encoding="utf-8",
+        )
+        records, statistics = load_chat_records_with_statistics([path])
+        assert len(records) == 1
+        assert statistics.to_dict() == {
+            "input_lines": 5,
+            "accepted_records": 1,
+            "malformed_json": 1,
+            "invalid_schema": 0,
+            "missing_or_invalid_roles": 1,
+            "empty_responses": 1,
+            "duplicate_examples": 1,
+            "removed_samples": 4,
+        }
 
 
 if __name__ == "__main__":

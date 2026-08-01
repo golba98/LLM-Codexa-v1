@@ -9,6 +9,11 @@ from safetensors.torch import load_model
 import torch
 from tokenizers import Tokenizer
 
+from src.chat_protocol import (
+    CHAT_TEMPLATE_VERSION,
+    chat_special_token_map,
+    validate_chat_tokenizer,
+)
 from src.model import LanguageModel, ModelConfig
 from src.token_data import file_sha256
 from src.tokenizer import BOS_TOKEN, EOS_TOKEN, load_tokenizer
@@ -143,7 +148,8 @@ def verify_release_directory(path: str | Path) -> dict[str, object]:
         raise ValueError("Release manifest training stage is invalid.")
     if training_stage == "supervised_fine_tuning":
         if (
-            not isinstance(manifest.get("chat_template_version"), str)
+            manifest.get("chat_template_version") != CHAT_TEMPLATE_VERSION
+            or manifest.get("chat_special_token_ids") != chat_special_token_map()
             or not isinstance(manifest.get("base_checkpoint"), dict)
             or not (root / "CHAT_TEMPLATE.md").is_file()
         ):
@@ -185,10 +191,16 @@ def load_release(
             f"Release weights mismatch: missing={missing}, unexpected={unexpected}."
         )
     tokenizer = load_tokenizer(root / "tokenizer.json")
-    if tokenizer.get_vocab_size(with_added_tokens=True) > config.vocab_size:
+    tokenizer_size = tokenizer.get_vocab_size(with_added_tokens=True)
+    if manifest.get("training_stage") == "supervised_fine_tuning":
+        if tokenizer_size != config.vocab_size:
+            raise ValueError("Chat release tokenizer and model vocabulary sizes differ.")
+    elif tokenizer_size > config.vocab_size:
         raise ValueError("Release tokenizer exceeds the model vocabulary.")
     if tokenizer.token_to_id(BOS_TOKEN) != 1 or tokenizer.token_to_id(EOS_TOKEN) != 2:
         raise ValueError("Release tokenizer must use <bos>=1 and <eos>=2.")
+    if manifest.get("training_stage") == "supervised_fine_tuning":
+        validate_chat_tokenizer(tokenizer)
     model.eval()
     return ReleaseBundle(
         root=root,

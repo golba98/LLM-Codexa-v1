@@ -16,7 +16,13 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.checkpointing import load_model_checkpoint
-from src.generate import GenerationConfig, generate_token_ids
+from src.chat_protocol import (
+    CHAT_TEMPLATE_VERSION,
+    ChatMessage,
+    encode_chat_messages,
+    validate_chat_tokenizer,
+)
+from src.generate import GenerationConfig, generate_sequences
 from src.model import LanguageModel, ModelConfig
 from src.token_data import file_sha256
 from src.tokenizer import BOS_TOKEN, EOS_TOKEN, load_tokenizer
@@ -160,7 +166,22 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         add_special_tokens=False,
     ).ids
     if instruction_mode:
-        prompt_ids.insert(0, bos_token_id)
+        if (
+            training_stage != "supervised_fine_tuning"
+            or chat_template_version != CHAT_TEMPLATE_VERSION
+        ):
+            raise ValueError(
+                "--instruction requires a compatible chat SFT checkpoint."
+            )
+        validate_chat_tokenizer(tokenizer)
+        user_content = arguments.instruction
+        if arguments.context:
+            user_content += f"\nContext: {arguments.context}"
+        prompt_ids, _ = encode_chat_messages(
+            (ChatMessage("user", user_content),),
+            tokenizer=tokenizer,
+            add_generation_prompt=True,
+        )
     if not prompt_ids:
         prompt_ids = [bos_token_id]
 
@@ -173,13 +194,29 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         do_sample=not arguments.greedy,
         seed=arguments.seed,
     )
-    generated = generate_token_ids(
+    stop_sequences = ()
+    if instruction_mode:
+        from src.chat_protocol import (
+            ASSISTANT_TOKEN,
+            END_TOKEN,
+            SPECIAL_TOKEN_IDS,
+            SYSTEM_TOKEN,
+            USER_TOKEN,
+        )
+
+        stop_sequences = tuple(
+            (SPECIAL_TOKEN_IDS[token],)
+            for token in (END_TOKEN, SYSTEM_TOKEN, USER_TOKEN, ASSISTANT_TOKEN)
+        )
+    sequence = generate_sequences(
         model,
         torch.tensor([prompt_ids], dtype=torch.long, device=device),
         eos_token_id=eos_token_id,
+        pad_token_id=tokenizer.token_to_id("<pad>"),
+        stop_sequences=stop_sequences,
         config=generation_config,
-    )[0].tolist()
-    continuation_ids = generated[len(prompt_ids) :]
+    ).sequences[0]
+    continuation_ids = list(sequence.visible_token_ids)
     output = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "checkpoint": (
@@ -202,7 +239,11 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         "instruction_context": arguments.context,
         "prompt_token_ids": prompt_ids,
         "generated_token_ids": continuation_ids,
-        "text": tokenizer.decode(generated, skip_special_tokens=True),
+        "generated_token_count": sequence.generated_token_count,
+        "finish_reason": sequence.finish_reason,
+        "termination_cause": sequence.termination_cause,
+        "terminating_token_id": sequence.terminating_token_id,
+        "text": tokenizer.decode(continuation_ids, skip_special_tokens=True),
         "generation_config": asdict(generation_config),
     }
     if arguments.output is not None:

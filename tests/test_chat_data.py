@@ -48,7 +48,7 @@ def main() -> None:
         records = load_chat_records(output)
         assert len(records) == 2
         assert all(len(record.messages) == 4 for record in records)
-        assert first_manifest["chat_template_version"] == "2.0"
+        assert first_manifest["chat_template_version"] == "3.0"
 
         copied_output = root / "chat-copy.jsonl"
         copied_manifest = root / "manifest-copy.json"

@@ -62,7 +62,7 @@ The production experiment uses a pinned TinyStories revision:
 ```
 
 Raw and processed corpora are intentionally ignored by Git. See
-`documentation/DATASET.md` for provenance, license, checksums, and limitations.
+`documentation/reference/DATASET.md` for provenance, license, checksums, and limitations.
 
 Prepare the pinned four-shard FineWeb-Edu candidate for the full run:
 
@@ -152,7 +152,7 @@ The 250M configurations are:
 - `configs/250m.yaml`: long-run architecture and baseline training settings.
 
 The frozen production inputs, exact token counts, storage projection, and
-strict preflight command are documented in `documentation/FULL_RUN.md`.
+strict preflight command are documented in `documentation/runs/FULL_RUN.md`.
 
 Checkpoints contain model, optimizer, scheduler, RNG, configuration, and
 training state. Resume only trusted local checkpoints:
@@ -296,54 +296,71 @@ with the same documented chat template:
 
 ## Chat instruction tuning
 
-The base model and chat model use separate run names and checkpoint
-directories. Download the pinned CC-BY-SA Dolly dataset:
+The 920,200,704-parameter checkpoint is a base pretrained model, not a chat
+model. Chat template `3.0` appends four control tokens, producing an
+8,196-token vocabulary and 920,206,848 tied-embedding parameters. First create
+the versioned tokenizer:
 
 ```bash
-.venv/bin/python -m scripts.download_dolly
+.venv/bin/python -m scripts.extend_chat_tokenizer \
+  --input checkpoints/tokenizer-fineweb-edu/tokenizer.json \
+  --output-dir checkpoints/tokenizer-fineweb-edu-chat-v3
 ```
 
-Prepare the deterministic canonical chat dataset. This retains all validated
-single turns and adds context-grounded follow-up turns to a seeded 20% subset:
+Build an auditable clean mixture. OpenAssistant inputs must first be rebuilt as
+complete ancestor chains with `scripts.prepare_oasst_conversations`; never use
+flattened child replies as standalone examples.
 
 ```bash
-.venv/bin/python -m scripts.prepare_chat_dataset \
-  data/raw/databricks-dolly-15k/databricks-dolly-15k.jsonl \
-  --output data/processed/codexa-chat-v1/chat.jsonl \
-  --manifest data/processed/codexa-chat-v1/chat_manifest.json \
-  --dataset-name codexa-chat-v1 \
-  --license cc-by-sa-3.0
+.venv/bin/python -m scripts.prepare_clean_chat_training \
+  --input data/processed/curated/chat.jsonl \
+  --input data/processed/oasst1/conversations.jsonl \
+  --output data/processed/codexa-chat-v3/chat.jsonl \
+  --manifest data/processed/codexa-chat-v3/manifest.json
 ```
 
-After selecting the base checkpoint, run assistant-only, causally shifted
-supervised fine-tuning:
+Run full-model assistant-only SFT with an explicit validation file. The 8-bit
+optimizer is the practical default for the 16 GB development GPU:
 
 ```bash
 .venv/bin/python -m scripts.train_sft \
-  --config configs/250m_chat.yaml \
-  --base-checkpoint checkpoints/phase15-500m/best.pt \
-  --tokenizer checkpoints/tokenizer-tinystories/tokenizer.json \
-  --instruction-jsonl \
-    data/processed/codexa-chat-v1/chat.jsonl \
+  --config configs/1b_1024_chat_sft.yaml \
+  --base-checkpoint checkpoints/codexa-1b-pretrain-1024-8bit-v3/best.pt \
+  --tokenizer checkpoints/tokenizer-fineweb-edu-chat-v3/tokenizer.json \
+  --instruction-jsonl data/processed/codexa-chat-v3/train.jsonl \
+  --validation-jsonl data/processed/codexa-chat-v3/validation.jsonl \
   --device cuda \
   --precision bf16 \
-  --run-name codexa-v1-chat \
+  --optimizer adamw8bit \
+  --run-name codexa-1b-chat-v3 \
   --checkpoint-dir checkpoints \
   --overwrite-log
 ```
 
-See `documentation/CHAT_TEMPLATE.md` for the exact template, target masking,
-multi-turn behavior, frozen dataset checksum, and derivative-license warning.
+The server refuses base or legacy-template checkpoints. Deterministic API
+defaults are greedy decoding, 128 new tokens, and token-level stopping on EOS,
+`<|end|>`, or a generated role marker:
 
-Generate from an instruction-tuned release with automatic template formatting:
+For future training runs, use the persistent launcher so the styled live
+dashboard opens automatically:
 
 ```bash
-.venv/bin/python -m scripts.generate \
-  --release-dir releases/codexa-v1-instruct \
-  --instruction "Write exactly three colors, separated by commas." \
-  --device cuda \
-  --max-new-tokens 64
+bash scripts/run_1b_chat_sft.sh
 ```
+
+Closing the dashboard does not stop training. Reopen it independently with
+`.venv/bin/python scripts/watch_chat_training.py`.
+
+```bash
+.venv/bin/python -m scripts.serve_openai \
+  --checkpoint checkpoints/codexa-1b-chat-v3/best.pt \
+  --tokenizer checkpoints/tokenizer-fineweb-edu-chat-v3/tokenizer.json \
+  --device cuda --precision bf16 --port 1235
+```
+
+Use `--debug-chat` only when rendered prompts may safely be logged. See
+`documentation/reference/CHAT_TEMPLATE.md` for the exact protocol and run
+`.venv/bin/python scripts/smoke_chat_sft.py` for the learned tiny-model smoke.
 
 ## Limitations
 
@@ -361,8 +378,9 @@ Generate from an instruction-tuned release with automatic template formatting:
 - Checkpoints are loaded through PyTorch serialization and must be treated as
   trusted local files.
 
-See `documentation/ARCHITECTURE.md`, `documentation/PROTOTYPE_RUN.md`, and
-`documentation/PHASE_PLAN.md` for design and measured evidence.
+See `documentation/reference/ARCHITECTURE.md`,
+`documentation/runs/PROTOTYPE_RUN.md`, and
+`documentation/planning/PHASE_PLAN.md` for design and measured evidence.
 
 ## License
 

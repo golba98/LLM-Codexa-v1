@@ -17,7 +17,7 @@ import uuid
 import numpy as np
 import torch
 from torch import nn
-from torch.optim import AdamW
+from torch.optim import AdamW, Optimizer
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -78,10 +78,16 @@ class TrainingMetrics:
     timestamp_utc: str
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        values = {
             name: _json_value(value, name)
             for name, value in asdict(self).items()
         }
+        values["validation_perplexity"] = (
+            None
+            if self.validation_loss is None
+            else math.exp(min(self.validation_loss, 80.0))
+        )
+        return values
 
 
 @dataclass(frozen=True)
@@ -188,13 +194,23 @@ def create_adamw_optimizer(
     weight_decay: float,
     betas: tuple[float, float] = (0.9, 0.95),
     epsilon: float = 1e-8,
-) -> AdamW:
-    """Construct deduplicated AdamW decay and no-decay groups."""
+    optimizer_name: str = "adamw",
+) -> Optimizer:
+    """Construct deduplicated AdamW decay and no-decay groups.
+
+    ``adamw8bit`` uses bitsandbytes' 8-bit optimizer state and is intended
+    for large CUDA models whose full-precision Adam state does not fit.
+    """
 
     if learning_rate <= 0 or not math.isfinite(learning_rate):
         raise ValueError("learning_rate must be a positive finite number.")
     if weight_decay < 0 or not math.isfinite(weight_decay):
         raise ValueError("weight_decay must be a non-negative finite number.")
+    if optimizer_name not in {"adamw", "adamw8bit"}:
+        raise ValueError(
+            "optimizer_name must be 'adamw' or 'adamw8bit'; "
+            f"got {optimizer_name!r}."
+        )
 
     groups: dict[int, tuple[nn.Parameter, bool, list[str]]] = {}
     for name, parameter in model.named_parameters(remove_duplicate=False):
@@ -239,7 +255,27 @@ def create_adamw_optimizer(
             "Optimizer groups must contain every trainable parameter exactly once."
         )
 
-    return AdamW(
+    optimizer_class: type[Optimizer]
+    if optimizer_name == "adamw8bit":
+        try:
+            from bitsandbytes.optim import AdamW8bit
+        except ImportError as error:
+            raise RuntimeError(
+                "adamw8bit requires the bitsandbytes package."
+            ) from error
+        optimizer_class = AdamW8bit
+    else:
+        optimizer_class = AdamW
+
+    optimizer_kwargs = {
+        "lr": learning_rate,
+        "betas": betas,
+        "eps": epsilon,
+    }
+    if optimizer_name == "adamw":
+        optimizer_kwargs["foreach"] = False
+
+    return optimizer_class(
         [
             {
                 "params": decay_parameters,
@@ -252,9 +288,7 @@ def create_adamw_optimizer(
                 "group_name": "no_decay",
             },
         ],
-        lr=learning_rate,
-        betas=betas,
-        eps=epsilon,
+        **optimizer_kwargs,
     )
 
 
@@ -404,7 +438,9 @@ def evaluate(
             if loss is None:
                 raise RuntimeError("Model did not return a validation loss.")
             loss_value = _finite_loss(loss, "validation loss")
-            token_count = int(labels.numel())
+            token_count = int((labels != -100).sum().item())
+            if token_count == 0:
+                continue
             total_weighted_loss += loss_value * token_count
             total_tokens += token_count
         if total_tokens == 0:
@@ -544,7 +580,9 @@ def train_model(
             else:
                 scaler.scale(scaled_loss).backward()
 
-            token_count = int(labels.numel())
+            token_count = int((labels != -100).sum().item())
+            if token_count == 0:
+                raise ValueError("Training batch contains no target tokens.")
             step_loss_sum += raw_loss_value * token_count
             step_tokens += token_count
             run_state.micro_step += 1

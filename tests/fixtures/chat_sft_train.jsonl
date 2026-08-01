@@ -1,0 +1,12 @@
+{"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":"Hi!"}],"category":"greeting","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"Just say hi."},{"role":"assistant","content":"Hi."}],"category":"instruction_adherence","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"What is 2 + 2?"},{"role":"assistant","content":"4"}],"category":"factual","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"Answer with exactly one word: hello"},{"role":"assistant","content":"hello"}],"category":"instruction_adherence","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"What planet is known as the Red Planet?"},{"role":"assistant","content":"Mars."}],"category":"factual","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"Why does rain fall? Answer briefly."},{"role":"assistant","content":"Water droplets fall when they become too heavy for clouds to hold."}],"category":"explanation","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"Explain what a variable is in programming."},{"role":"assistant","content":"A variable is a named place that stores a value a program can use or change."}],"category":"explanation","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"Write Python that adds two numbers."},{"role":"assistant","content":"def add(a, b):\n    return a + b"}],"category":"coding","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"Give one JavaScript expression that doubles x."},{"role":"assistant","content":"x * 2"}],"category":"coding","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"Reply with only yes: Is water wet?"},{"role":"assistant","content":"yes"}],"category":"concise","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"Remember the color blue."},{"role":"assistant","content":"I will remember blue."},{"role":"user","content":"Which color did I name?"},{"role":"assistant","content":"Blue."}],"category":"multi_turn","source":"codexa-curated"}
+{"messages":[{"role":"user","content":"My name is Sam."},{"role":"assistant","content":"Nice to meet you, Sam."},{"role":"user","content":"What name did I give you?"},{"role":"assistant","content":"Sam."}],"category":"multi_turn","source":"codexa-curated"}

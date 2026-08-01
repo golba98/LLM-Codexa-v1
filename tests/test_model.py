@@ -73,9 +73,10 @@ def test_configuration_validation() -> None:
     )
 
 
-def test_input_validation(model: LanguageModel) -> None:
+def test_input_validation() -> None:
     """Check public forward-input validation."""
 
+    model = LanguageModel(SMALL_CONFIG)
     valid_input = torch.randint(
         0,
         SMALL_CONFIG.vocab_size,
@@ -135,6 +136,26 @@ def test_weight_tying() -> None:
     assert count_parameters(untied_model) - count_parameters(tied_model) == (
         SMALL_CONFIG.vocab_size * SMALL_CONFIG.hidden_size
     )
+
+
+def test_embedding_resize_and_padding_mask() -> None:
+    config = ModelConfig(**vars(SMALL_CONFIG))
+    model = LanguageModel(config)
+    original = model.token_embeddings.weight.detach().clone()
+    original_count = count_parameters(model)
+    model.resize_token_embeddings(config.vocab_size + 4, seed=42)
+    assert model.config.vocab_size == SMALL_CONFIG.vocab_size + 4
+    assert torch.equal(
+        model.token_embeddings.weight[: SMALL_CONFIG.vocab_size],
+        original,
+    )
+    assert model.lm_head.weight is model.token_embeddings.weight
+    assert count_parameters(model) == original_count + 4 * SMALL_CONFIG.hidden_size
+
+    input_ids = torch.tensor([[1, 7, 0], [1, 0, 0]], dtype=torch.long)
+    attention_mask = torch.tensor([[1, 1, 0], [1, 0, 0]], dtype=torch.bool)
+    logits, _ = model(input_ids, attention_mask=attention_mask)
+    assert logits.shape == (2, 3, SMALL_CONFIG.vocab_size + 4)
 
 
 def run_cuda_tests() -> tuple[str, str]:
@@ -228,12 +249,13 @@ def main() -> None:
     torch.manual_seed(42)
     test_configuration_validation()
     test_weight_tying()
+    test_embedding_resize_and_padding_mask()
     test_gradient_checkpointing()
 
     model = LanguageModel(SMALL_CONFIG)
     assert count_parameters(model) > 0
     assert count_parameters(model, trainable_only=True) == count_parameters(model)
-    test_input_validation(model)
+    test_input_validation()
 
     batch_size = 2
     sequence_length = 12

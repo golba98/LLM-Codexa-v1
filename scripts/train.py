@@ -76,6 +76,17 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help="Trusted local checkpoint to resume, such as latest.pt.",
     )
     parser.add_argument("--no-validation", action="store_true")
+    parser.add_argument(
+        "--gradient-checkpointing",
+        action="store_true",
+        help="Recompute Transformer activations to reduce training VRAM.",
+    )
+    parser.add_argument(
+        "--optimizer",
+        choices=("adamw", "adamw8bit"),
+        default="adamw",
+        help="Optimizer state format; adamw8bit reduces CUDA memory.",
+    )
     parser.add_argument("--overwrite-log", action="store_true")
     return parser
 
@@ -352,6 +363,7 @@ def run(arguments: argparse.Namespace) -> int:
         )
 
     model = LanguageModel(project_config.model)
+    model.set_gradient_checkpointing(arguments.gradient_checkpointing)
     total_parameters = count_parameters(model)
     trainable_parameters = count_parameters(model, trainable_only=True)
     model.to(device)
@@ -359,6 +371,7 @@ def run(arguments: argparse.Namespace) -> int:
         model,
         learning_rate=training_config.learning_rate,
         weight_decay=training_config.weight_decay,
+        optimizer_name=arguments.optimizer,
     )
     scaler = create_grad_scaler(device, precision)
     minimum_learning_rate = training_config.learning_rate * 0.1
@@ -499,6 +512,8 @@ def run(arguments: argparse.Namespace) -> int:
                     "context_length": project_config.model.context_length,
                     "total_parameter_count": total_parameters,
                     "trainable_parameter_count": trainable_parameters,
+                    "gradient_checkpointing": arguments.gradient_checkpointing,
+                    "optimizer": arguments.optimizer,
                     "git_commit": _git_commit(),
                     "command_line_arguments": {
                         key: str(value) if isinstance(value, Path) else value

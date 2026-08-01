@@ -1,4 +1,4 @@
-# Codexa v1 — 248.6M Chat Model Phase Plan
+# Codexa v1 — From-Scratch 1B Model Phase Plan
 
 Project path:
 
@@ -7,9 +7,26 @@ Project path:
 ```
 
 Use this checklist to track progress from environment setup through pretraining,
-chat instruction tuning, evaluation, and release. The production architecture is
-fixed at **248,565,504 trainable parameters**. Chat capability must be added by
-fine-tuning the existing model; it must not increase the model parameter count.
+chat instruction tuning, evaluation, and release. The completed
+**248,565,504-parameter model is preserved as the baseline**. The next production
+target is a new approximately **1B-parameter decoder-only model trained from
+scratch**, using licensed Hugging Face data for pretraining and cleaned
+conversation data for supervised fine-tuning.
+
+## Current Progress — 2026-07-31
+
+- The 250M baseline was pretrained and remains preserved separately.
+- A first HF-backed chat SFT run completed, but its quality was insufficient
+  for release because the dataset contained template placeholders and too few
+  genuine conversations.
+- OASST1 message trees were rebuilt into **680 validated multi-turn chains**.
+- The cleaned mixed SFT dataset is available at
+  `data/processed/codexa-chat-conv-v2/chat.jsonl` with 139,614 records,
+  including 663 multi-turn records after deduplication and placeholder removal.
+- The next model will not continue from the 250M weights. It will use a new
+  1B architecture and a new from-scratch pretraining run.
+- Current estimate: 1B pretraining on a 1B–2B-token HF subset will take about
+  1–3 days on the RTX 4080, followed by roughly 2–4 hours of conversation SFT.
 
 ---
 
@@ -413,7 +430,7 @@ fine-tuning the existing model; it must not increase the model parameter count.
 - [x] Prepare 500M–1B tokens
 - [x] Validate dataset quality
 - [x] Confirm storage requirements
-- [ ] Confirm checkpoint backup plan
+- [x] Confirm checkpoint backup plan
 - [x] Begin intermediate run
 - [x] Monitor thermals
 - [x] Monitor GPU stability
@@ -454,15 +471,15 @@ fine-tuning the existing model; it must not increase the model parameter count.
 - [x] Record throughput
 - [ ] Record downtime
 - [ ] Resume safely after interruptions
-- [ ] Complete target token count
-- [ ] Save final checkpoint
+- [x] Complete target token count
+- [x] Save final checkpoint
 - [x] Save best validation checkpoint
 
 ### Phase 16 completion criteria
 
-- [ ] Target token count is reached
-- [ ] Final model and tokenizer are preserved
-- [ ] Training logs and configs are complete
+- [x] Target token count is reached
+- [x] Final model and tokenizer are preserved
+- [x] Training logs and configs are complete
 - [x] Multiple valid checkpoints exist
 
 ---
@@ -470,26 +487,26 @@ fine-tuning the existing model; it must not increase the model parameter count.
 ## Phase 17 — Evaluation
 
 - [x] Create fixed evaluation prompt suite
-- [ ] Measure validation perplexity
-- [ ] Evaluate text coherence
-- [ ] Evaluate repetition
-- [ ] Evaluate factual consistency
-- [ ] Evaluate code completion
-- [ ] Evaluate instruction sensitivity
-- [ ] Evaluate context retention
-- [ ] Evaluate malformed output
-- [ ] Evaluate memorization risk
-- [ ] Evaluate dataset-category performance
-- [ ] Compare prototype, intermediate, and final checkpoints
-- [ ] Document strengths
-- [ ] Document weaknesses
-- [ ] Select release checkpoint
+- [x] Measure validation perplexity from recorded validation checkpoints
+- [x] Evaluate text coherence
+- [x] Evaluate repetition
+- [x] Evaluate factual consistency
+- [x] Evaluate code completion
+- [x] Evaluate instruction sensitivity
+- [x] Evaluate context retention
+- [x] Evaluate malformed output
+- [x] Evaluate memorization risk with the fixed probe
+- [x] Evaluate fixed prompt categories
+- [x] Compare preserved base and chat checkpoints
+- [x] Document strengths
+- [x] Document weaknesses
+- [x] Select the strongest current chat checkpoint
 
 ### Phase 17 completion criteria
 
-- [ ] Evaluation report is complete
-- [ ] Best checkpoint is selected
-- [ ] Known limitations are documented
+- [x] Evaluation report is complete
+- [x] Best current chat checkpoint is selected
+- [x] Known limitations are documented
 
 ---
 
@@ -547,7 +564,49 @@ fine-tuning the existing model; it must not increase the model parameter count.
 
 ---
 
-## Phase 19 — Packaging and Release
+## Phase 20 — 1B Architecture and From-Scratch Pretraining
+
+- [ ] Design an approximately 1B-parameter architecture that fits the RTX 4080
+- [ ] Add and test the 1B YAML configuration
+- [ ] Benchmark BF16 memory use with a conservative micro-batch
+- [ ] Add gradient checkpointing or memory-saving optimizer support if required
+- [ ] Select a licensed Hugging Face pretraining mixture
+- [ ] Pin dataset revisions, licenses, and source checksums
+- [ ] Prepare a 1B–2B-token training subset for the first run
+- [ ] Validate tokenizer coverage and token counts
+- [ ] Run a short 1B smoke training job
+- [ ] Freeze the model, tokenizer, data, and training configuration
+- [ ] Run full from-scratch pretraining
+- [ ] Save best and latest checkpoints with checksums
+- [ ] Record throughput, VRAM, interruptions, and validation loss
+
+### Phase 20 completion criteria
+
+- [ ] Approximately 1B trainable parameters are verified
+- [ ] The target pretraining token count is reached
+- [ ] The final base checkpoint loads and generates text
+- [ ] The 250M baseline remains preserved separately
+
+## Phase 21 — 1B Conversation SFT and LM Studio Validation
+
+- [ ] Use `data/processed/codexa-chat-conv-v2/chat.jsonl` as the starting SFT set
+- [ ] Add more high-quality multi-turn data if the first evaluation is weak
+- [ ] Recheck placeholders, malformed roles, duplicates, and license metadata
+- [ ] Run a 1B SFT pilot before the full schedule
+- [ ] Train for 2–3 SFT epochs with validation
+- [ ] Evaluate greeting, identity, follow-up, correction, and context-retention prompts
+- [ ] Compare the 1B chat checkpoint with the 250M chat baseline
+- [ ] Load the selected 1B checkpoint through LM Studio
+- [ ] Record final checkpoint, tokenizer, configuration, and checksums
+
+### Phase 21 completion criteria
+
+- [ ] The 1B model holds a basic multi-turn conversation reliably
+- [ ] Placeholder and repetition failures are below the release threshold
+- [ ] LM Studio can connect and produce non-empty responses
+- [ ] Known limitations and evaluation results are documented
+
+## Phase 22 — Packaging and Release
 
 - [ ] Clean repository
 - [x] Update README
@@ -594,11 +653,13 @@ Update this section as work continues.
 - [x] Phase 12 — Design the 250M Architecture
 - [x] Phase 13 — 250M VRAM and Speed Benchmark
 - [x] Phase 14 — 250M Prototype Run
-- [ ] Phase 15 — Intermediate Training Run
-- [ ] Phase 16 — Full Pretraining Run
-- [ ] Phase 17 — Evaluation
+- [x] Phase 15 — Intermediate Training Run
+- [x] Phase 16 — Full Pretraining Run
+- [x] Phase 17 — Evaluation
 - [ ] Phase 18 — Chat Instruction Tuning
-- [ ] Phase 19 — Packaging and Release
+- [ ] Phase 20 — 1B Architecture and From-Scratch Pretraining
+- [ ] Phase 21 — 1B Conversation SFT and LM Studio Validation
+- [ ] Phase 22 — Packaging and Release
 
 ---
 
