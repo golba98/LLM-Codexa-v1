@@ -1,0 +1,55 @@
+[
+  {
+    "category": "brainstorming",
+    "prompt": "List exactly three safe indoor hobbies, separated by commas.",
+    "expected_pattern": "^\\s*[^,\\n]+,\\s*[^,\\n]+,\\s*[^,\\n.!]+[.!]?\\s*$"
+  },
+  {
+    "category": "classification",
+    "prompt": "Classify the sentiment as positive or negative: I enjoyed the warm and helpful welcome.",
+    "expected_terms": [
+      "positive"
+    ],
+    "expected_term_search_characters": 64
+  },
+  {
+    "category": "closed_qa",
+    "prompt": "Which planet is known as the Red Planet?",
+    "expected_terms": [
+      "Mars"
+    ],
+    "expected_term_search_characters": 64
+  },
+  {
+    "category": "creative_writing",
+    "prompt": "Write one sentence about a small robot learning to garden."
+  },
+  {
+    "category": "general_qa",
+    "prompt": "At what temperature does pure water freeze in degrees Celsius?",
+    "expected_terms": [
+      "0"
+    ],
+    "expected_term_search_characters": 64
+  },
+  {
+    "category": "information_extraction",
+    "prompt": "Read this note and return only the project name: The team approved Project Orion on Tuesday.",
+    "expected_terms": [
+      "Orion"
+    ],
+    "expected_term_search_characters": 64
+  },
+  {
+    "category": "open_qa",
+    "prompt": "In one short sentence, why does the daytime sky usually appear blue?",
+    "expected_terms": [
+      "light"
+    ],
+    "expected_term_search_characters": 64
+  },
+  {
+    "category": "summarization",
+    "prompt": "Summarize in one sentence: Bees visit flowers to gather nectar and pollen, and this activity also pollinates many plants."
+  }
+]

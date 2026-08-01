@@ -1,0 +1,10 @@
+[
+  {
+    "category": "story",
+    "prompt": "A fox"
+  },
+  {
+    "category": "instruction",
+    "prompt": "Say blue:"
+  }
+]

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 from torch import nn
+from torch.utils.checkpoint import checkpoint
 
 
 _INTEGER_DTYPES = {
@@ -104,7 +105,11 @@ class CausalSelfAttention(nn.Module):
             bias=False,
         )
 
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         if inputs.ndim != 3:
             raise ValueError(
                 "attention input must have shape [batch, sequence, hidden_size]; "
@@ -131,13 +136,35 @@ class CausalSelfAttention(nn.Module):
         key = split_heads(key)
         value = split_heads(value)
 
-        attention_output = F.scaled_dot_product_attention(
-            query,
-            key,
-            value,
-            dropout_p=self.dropout if self.training else 0.0,
-            is_causal=True,
-        )
+        if attention_mask is None:
+            attention_output = F.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                dropout_p=self.dropout if self.training else 0.0,
+                is_causal=True,
+            )
+        else:
+            if attention_mask.shape != (batch_size, sequence_length):
+                raise ValueError(
+                    "attention_mask must match [batch, sequence]."
+                )
+            causal = torch.ones(
+                (sequence_length, sequence_length),
+                dtype=torch.bool,
+                device=inputs.device,
+            ).tril()
+            allowed = causal[None, None, :, :] & attention_mask[
+                :, None, None, :
+            ].to(dtype=torch.bool)
+            attention_output = F.scaled_dot_product_attention(
+                query,
+                key,
+                value,
+                attn_mask=allowed,
+                dropout_p=self.dropout if self.training else 0.0,
+                is_causal=False,
+            )
         attention_output = attention_output.transpose(1, 2).contiguous().reshape(
             batch_size,
             sequence_length,
@@ -182,8 +209,15 @@ class TransformerBlock(nn.Module):
         self.ffn_norm = RMSNorm(config.hidden_size)
         self.feed_forward = FeedForward(config)
 
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
-        hidden_states = inputs + self.attention(self.attention_norm(inputs))
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        hidden_states = inputs + self.attention(
+            self.attention_norm(inputs),
+            attention_mask,
+        )
         return hidden_states + self.feed_forward(self.ffn_norm(hidden_states))
 
 
@@ -193,6 +227,7 @@ class LanguageModel(nn.Module):
     def __init__(self, config: ModelConfig) -> None:
         super().__init__()
         self.config = config
+        self.gradient_checkpointing = False
         self.token_embeddings = nn.Embedding(
             config.vocab_size,
             config.hidden_size,
@@ -215,6 +250,69 @@ class LanguageModel(nn.Module):
         if config.tie_embeddings:
             self.lm_head.weight = self.token_embeddings.weight
 
+    def set_gradient_checkpointing(self, enabled: bool) -> None:
+        """Enable activation recomputation for Transformer blocks."""
+
+        if not isinstance(enabled, bool):
+            raise TypeError("enabled must be a boolean.")
+        self.gradient_checkpointing = enabled
+
+    def resize_token_embeddings(
+        self,
+        new_vocab_size: int,
+        *,
+        seed: int = 42,
+    ) -> None:
+        """Grow token embeddings while preserving rows and weight tying."""
+
+        old_vocab_size = self.config.vocab_size
+        if new_vocab_size < old_vocab_size:
+            raise ValueError("Token embeddings cannot be shrunk.")
+        if new_vocab_size == old_vocab_size:
+            return
+        if not isinstance(seed, int) or isinstance(seed, bool) or seed < 0:
+            raise ValueError("seed must be a non-negative integer.")
+        old_embeddings = self.token_embeddings
+        old_lm_head_weight = self.lm_head.weight.detach().clone()
+        device = old_embeddings.weight.device
+        dtype = old_embeddings.weight.dtype
+        replacement = nn.Embedding(
+            new_vocab_size,
+            self.config.hidden_size,
+            device=device,
+            dtype=dtype,
+        )
+        generator = torch.Generator(device=device)
+        generator.manual_seed(seed)
+        with torch.no_grad():
+            replacement.weight[:old_vocab_size].copy_(old_embeddings.weight)
+            replacement.weight[old_vocab_size:].normal_(
+                mean=0.0,
+                std=0.02,
+                generator=generator,
+            )
+        self.token_embeddings = replacement
+        self.lm_head = nn.Linear(
+            self.config.hidden_size,
+            new_vocab_size,
+            bias=False,
+            device=device,
+            dtype=dtype,
+        )
+        if self.config.tie_embeddings:
+            self.lm_head.weight = self.token_embeddings.weight
+        else:
+            with torch.no_grad():
+                self.lm_head.weight[:old_vocab_size].copy_(
+                    old_lm_head_weight
+                )
+                self.lm_head.weight[old_vocab_size:].normal_(
+                    mean=0.0,
+                    std=0.02,
+                    generator=generator,
+                )
+        self.config.vocab_size = new_vocab_size
+
     @staticmethod
     def _initialize_weights(module: nn.Module) -> None:
         if isinstance(module, (nn.Linear, nn.Embedding)):
@@ -224,6 +322,8 @@ class LanguageModel(nn.Module):
         self,
         input_ids: torch.Tensor,
         labels: torch.Tensor | None = None,
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         if input_ids.ndim != 2:
             raise ValueError(
@@ -256,16 +356,40 @@ class LanguageModel(nn.Module):
                     f"labels must use an integer dtype; got {labels.dtype}."
                 )
 
-        positions = torch.arange(
-            sequence_length,
-            device=input_ids.device,
-            dtype=torch.long,
-        )
+        if attention_mask is not None:
+            if attention_mask.shape != input_ids.shape:
+                raise ValueError("attention_mask must match input_ids shape.")
+            if attention_mask.dtype != torch.bool:
+                attention_mask = attention_mask.to(dtype=torch.bool)
+        if position_ids is None:
+            if attention_mask is None:
+                positions = torch.arange(
+                    sequence_length,
+                    device=input_ids.device,
+                    dtype=torch.long,
+                )
+            else:
+                positions = attention_mask.long().cumsum(dim=-1) - 1
+                positions.clamp_(min=0)
+        else:
+            if position_ids.shape != input_ids.shape:
+                raise ValueError("position_ids must match input_ids shape.")
+            positions = position_ids.to(device=input_ids.device, dtype=torch.long)
+        if int(positions.max().item()) >= self.config.context_length:
+            raise ValueError("position_ids exceed context_length.")
         hidden_states = self.token_embeddings(input_ids.to(dtype=torch.long))
         hidden_states = hidden_states + self.position_embeddings(positions)
 
         for block in self.blocks:
-            hidden_states = block(hidden_states)
+            if self.gradient_checkpointing and self.training:
+                hidden_states = checkpoint(
+                    block,
+                    hidden_states,
+                    attention_mask,
+                    use_reentrant=False,
+                )
+            else:
+                hidden_states = block(hidden_states, attention_mask)
 
         logits = self.lm_head(self.final_norm(hidden_states))
         loss: torch.Tensor | None = None
@@ -273,6 +397,7 @@ class LanguageModel(nn.Module):
             loss = F.cross_entropy(
                 logits.reshape(-1, self.config.vocab_size),
                 labels.to(dtype=torch.long).reshape(-1),
+                ignore_index=-100,
             )
 
         return logits, loss
