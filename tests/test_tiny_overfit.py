@@ -1,4 +1,4 @@
-"""Lightweight structural tests for the Phase 10 overfit experiment."""
+"""Lightweight structural tests for the tiny overfit experiment."""
 
 import json
 from pathlib import Path

@@ -48,10 +48,6 @@ class LoadedCheckpoint:
     run_id: str
     tokenizer_reference: str | None
     tokenizer_sha256: str | None
-    training_stage: str
-    chat_template_version: str | None
-    chat_special_token_ids: dict[str, int] | None
-    base_checkpoint: dict[str, object] | None
 
 
 @dataclass(frozen=True)
@@ -65,10 +61,6 @@ class InferenceCheckpoint:
     run_id: str
     tokenizer_reference: str | None
     tokenizer_sha256: str | None
-    training_stage: str
-    chat_template_version: str | None
-    chat_special_token_ids: dict[str, int] | None
-    base_checkpoint: dict[str, object] | None
 
 
 def file_sha256(path: str | Path) -> str:
@@ -405,10 +397,6 @@ def load_checkpoint(
         raise ValueError("Checkpoint run identity is invalid.")
     tokenizer_reference = payload.get("tokenizer_reference")
     tokenizer_sha256 = payload.get("tokenizer_sha256")
-    training_stage = payload.get("training_stage", "pretraining")
-    chat_template_version = payload.get("chat_template_version")
-    chat_special_token_ids = payload.get("chat_special_token_ids")
-    base_checkpoint = payload.get("base_checkpoint")
     if tokenizer_reference is not None and not isinstance(
         tokenizer_reference,
         str,
@@ -416,28 +404,6 @@ def load_checkpoint(
         raise ValueError("Checkpoint tokenizer reference is invalid.")
     if tokenizer_sha256 is not None and not isinstance(tokenizer_sha256, str):
         raise ValueError("Checkpoint tokenizer checksum is invalid.")
-    if training_stage not in {"pretraining", "supervised_fine_tuning"}:
-        raise ValueError("Checkpoint training stage is invalid.")
-    if chat_template_version is not None and not isinstance(
-        chat_template_version, str
-    ):
-        raise ValueError("Checkpoint chat-template version is invalid.")
-    if chat_special_token_ids is not None and (
-        not isinstance(chat_special_token_ids, dict)
-        or not all(
-            isinstance(token, str)
-            and isinstance(token_id, int)
-            and not isinstance(token_id, bool)
-            for token, token_id in chat_special_token_ids.items()
-        )
-    ):
-        raise ValueError("Checkpoint chat special-token map is invalid.")
-    if base_checkpoint is not None and not isinstance(base_checkpoint, dict):
-        raise ValueError("Checkpoint base-checkpoint lineage is invalid.")
-    if training_stage == "supervised_fine_tuning" and (
-        chat_template_version is None or base_checkpoint is None
-    ):
-        raise ValueError("SFT checkpoint lineage metadata is incomplete.")
     if scaler is not None and not isinstance(scaler_state, dict):
         raise ValueError("Checkpoint GradScaler state is invalid.")
 
@@ -455,10 +421,6 @@ def load_checkpoint(
         run_id=run_id,
         tokenizer_reference=tokenizer_reference,
         tokenizer_sha256=tokenizer_sha256,
-        training_stage=training_stage,
-        chat_template_version=chat_template_version,
-        chat_special_token_ids=chat_special_token_ids,
-        base_checkpoint=base_checkpoint,
     )
 
 
@@ -499,10 +461,6 @@ def load_model_checkpoint(
     run_id = payload.get("run_id")
     tokenizer_reference = payload.get("tokenizer_reference")
     tokenizer_sha256 = payload.get("tokenizer_sha256")
-    training_stage = payload.get("training_stage", "pretraining")
-    chat_template_version = payload.get("chat_template_version")
-    chat_special_token_ids = payload.get("chat_special_token_ids")
-    base_checkpoint = payload.get("base_checkpoint")
     if not isinstance(run_name, str) or not isinstance(run_id, str):
         raise ValueError("Checkpoint run identity is invalid.")
     if tokenizer_reference is not None and not isinstance(
@@ -512,28 +470,6 @@ def load_model_checkpoint(
         raise ValueError("Checkpoint tokenizer reference is invalid.")
     if tokenizer_sha256 is not None and not isinstance(tokenizer_sha256, str):
         raise ValueError("Checkpoint tokenizer checksum is invalid.")
-    if training_stage not in {"pretraining", "supervised_fine_tuning"}:
-        raise ValueError("Checkpoint training stage is invalid.")
-    if chat_template_version is not None and not isinstance(
-        chat_template_version, str
-    ):
-        raise ValueError("Checkpoint chat-template version is invalid.")
-    if chat_special_token_ids is not None and (
-        not isinstance(chat_special_token_ids, dict)
-        or not all(
-            isinstance(token, str)
-            and isinstance(token_id, int)
-            and not isinstance(token_id, bool)
-            for token, token_id in chat_special_token_ids.items()
-        )
-    ):
-        raise ValueError("Checkpoint chat special-token map is invalid.")
-    if base_checkpoint is not None and not isinstance(base_checkpoint, dict):
-        raise ValueError("Checkpoint base-checkpoint lineage is invalid.")
-    if training_stage == "supervised_fine_tuning" and (
-        chat_template_version is None or base_checkpoint is None
-    ):
-        raise ValueError("SFT checkpoint lineage metadata is incomplete.")
     model.load_state_dict(model_state, strict=True)
     return InferenceCheckpoint(
         path=checkpoint_path,
@@ -543,8 +479,4 @@ def load_model_checkpoint(
         run_id=run_id,
         tokenizer_reference=tokenizer_reference,
         tokenizer_sha256=tokenizer_sha256,
-        training_stage=training_stage,
-        chat_template_version=chat_template_version,
-        chat_special_token_ids=chat_special_token_ids,
-        base_checkpoint=base_checkpoint,
     )

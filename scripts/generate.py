@@ -1,4 +1,4 @@
-"""Generate text from a trusted Codexa checkpoint."""
+"""Generate a base-model text continuation from a trusted checkpoint."""
 
 import argparse
 from dataclasses import asdict
@@ -15,13 +15,7 @@ import torch
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.checkpointing import load_model_checkpoint
-from src.chat_protocol import (
-    CHAT_TEMPLATE_VERSION,
-    ChatMessage,
-    encode_chat_messages,
-    validate_chat_tokenizer,
-)
+from src.checkpointing import load_model_checkpoint, verify_checkpoint_checksum
 from src.generate import GenerationConfig, generate_sequences
 from src.model import LanguageModel, ModelConfig
 from src.token_data import file_sha256
@@ -30,17 +24,12 @@ from src.training import resolve_device
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Generate text from a Codexa checkpoint."
-    )
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--checkpoint", type=Path)
-    source.add_argument("--release-dir", type=Path)
-    parser.add_argument("--tokenizer", type=Path)
-    prompt_source = parser.add_mutually_exclusive_group(required=True)
-    prompt_source.add_argument("--prompt")
-    prompt_source.add_argument("--instruction")
-    parser.add_argument("--context")
+    """Build the base-generation command-line parser."""
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--checkpoint", type=Path, required=True)
+    parser.add_argument("--tokenizer", type=Path, required=True)
+    parser.add_argument("--prompt", required=True)
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--max-new-tokens", type=int, default=128)
     parser.add_argument("--temperature", type=float, default=1.0)
@@ -55,8 +44,6 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
 def _checkpoint_model_config(path: Path) -> ModelConfig:
     """Read the model geometry after checksum validation."""
-
-    from src.checkpointing import verify_checkpoint_checksum
 
     verify_checkpoint_checksum(path)
     payload = torch.load(path, map_location="cpu", weights_only=False)
@@ -99,91 +86,31 @@ def _atomic_json_write(path: Path, value: object) -> None:
 
 
 def run(arguments: argparse.Namespace) -> dict[str, object]:
+    """Generate and optionally save one continuation."""
+
     device = resolve_device(arguments.device)
-    instruction_mode = arguments.instruction is not None
-    if instruction_mode:
-        from src.sft import format_instruction_prompt
+    model = LanguageModel(_checkpoint_model_config(arguments.checkpoint)).to(device)
+    checkpoint = load_model_checkpoint(
+        arguments.checkpoint,
+        model=model,
+        map_location=device,
+    )
+    tokenizer = load_tokenizer(arguments.tokenizer)
+    tokenizer_checksum = file_sha256(arguments.tokenizer)
+    if (
+        checkpoint.tokenizer_sha256 is not None
+        and checkpoint.tokenizer_sha256 != tokenizer_checksum
+    ):
+        raise ValueError("Tokenizer checksum does not match the checkpoint.")
 
-        prompt = format_instruction_prompt(
-            arguments.instruction,
-            "" if arguments.context is None else arguments.context,
-        )
-    else:
-        if arguments.context is not None:
-            raise ValueError("--context requires --instruction.")
-        if arguments.prompt is None:
-            raise ValueError("--prompt or --instruction is required.")
-        prompt = arguments.prompt
-    if arguments.release_dir is not None:
-        if arguments.tokenizer is not None:
-            raise ValueError(
-                "--tokenizer must not be supplied with --release-dir."
-            )
-        from src.release import load_release
-
-        release = load_release(arguments.release_dir, device=device)
-        model = release.model
-        tokenizer = release.tokenizer
-        tokenizer_path = release.root / "tokenizer.json"
-        tokenizer_checksum = file_sha256(tokenizer_path)
-        checkpoint = None
-        checkpoint_step = release.manifest.get(
-            "source_checkpoint_optimizer_step"
-        )
-        checkpoint_run_id = release.manifest.get("source_checkpoint_run_id")
-        training_stage = release.manifest.get("training_stage", "pretraining")
-        chat_template_version = release.manifest.get("chat_template_version")
-    else:
-        if arguments.checkpoint is None:
-            raise ValueError("--checkpoint is required.")
-        if arguments.tokenizer is None:
-            raise ValueError("--tokenizer is required with --checkpoint.")
-        model_config = _checkpoint_model_config(arguments.checkpoint)
-        model = LanguageModel(model_config).to(device)
-        checkpoint = load_model_checkpoint(
-            arguments.checkpoint,
-            model=model,
-            map_location=device,
-        )
-        tokenizer = load_tokenizer(arguments.tokenizer)
-        tokenizer_path = arguments.tokenizer
-        tokenizer_checksum = file_sha256(tokenizer_path)
-        if (
-            checkpoint.tokenizer_sha256 is not None
-            and checkpoint.tokenizer_sha256 != tokenizer_checksum
-        ):
-            raise ValueError("Tokenizer checksum does not match the checkpoint.")
-        checkpoint_step = checkpoint.training_state.optimizer_step
-        checkpoint_run_id = checkpoint.run_id
-        training_stage = checkpoint.training_stage
-        chat_template_version = checkpoint.chat_template_version
     eos_token_id = tokenizer.token_to_id(EOS_TOKEN)
     bos_token_id = tokenizer.token_to_id(BOS_TOKEN)
     if eos_token_id != 2 or bos_token_id != 1:
         raise ValueError("Tokenizer must use <bos>=1 and <eos>=2.")
     prompt_ids = tokenizer.encode(
-        prompt,
+        arguments.prompt,
         add_special_tokens=False,
-    ).ids
-    if instruction_mode:
-        if (
-            training_stage != "supervised_fine_tuning"
-            or chat_template_version != CHAT_TEMPLATE_VERSION
-        ):
-            raise ValueError(
-                "--instruction requires a compatible chat SFT checkpoint."
-            )
-        validate_chat_tokenizer(tokenizer)
-        user_content = arguments.instruction
-        if arguments.context:
-            user_content += f"\nContext: {arguments.context}"
-        prompt_ids, _ = encode_chat_messages(
-            (ChatMessage("user", user_content),),
-            tokenizer=tokenizer,
-            add_generation_prompt=True,
-        )
-    if not prompt_ids:
-        prompt_ids = [bos_token_id]
+    ).ids or [bos_token_id]
 
     generation_config = GenerationConfig(
         max_new_tokens=arguments.max_new_tokens,
@@ -194,55 +121,29 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         do_sample=not arguments.greedy,
         seed=arguments.seed,
     )
-    stop_sequences = ()
-    if instruction_mode:
-        from src.chat_protocol import (
-            ASSISTANT_TOKEN,
-            END_TOKEN,
-            SPECIAL_TOKEN_IDS,
-            SYSTEM_TOKEN,
-            USER_TOKEN,
-        )
-
-        stop_sequences = tuple(
-            (SPECIAL_TOKEN_IDS[token],)
-            for token in (END_TOKEN, SYSTEM_TOKEN, USER_TOKEN, ASSISTANT_TOKEN)
-        )
-    sequence = generate_sequences(
+    generated = generate_sequences(
         model,
         torch.tensor([prompt_ids], dtype=torch.long, device=device),
         eos_token_id=eos_token_id,
         pad_token_id=tokenizer.token_to_id("<pad>"),
-        stop_sequences=stop_sequences,
         config=generation_config,
     ).sequences[0]
-    continuation_ids = list(sequence.visible_token_ids)
+    continuation_ids = list(generated.visible_token_ids)
     output = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "checkpoint": (
-            None if arguments.checkpoint is None else str(arguments.checkpoint)
-        ),
-        "release_directory": (
-            None
-            if arguments.release_dir is None
-            else str(arguments.release_dir)
-        ),
-        "checkpoint_run_id": checkpoint_run_id,
-        "checkpoint_optimizer_step": checkpoint_step,
-        "training_stage": training_stage,
-        "chat_template_version": chat_template_version,
-        "tokenizer": str(tokenizer_path),
+        "checkpoint": str(arguments.checkpoint),
+        "checkpoint_run_id": checkpoint.run_id,
+        "checkpoint_optimizer_step": checkpoint.training_state.optimizer_step,
+        "tokenizer": str(arguments.tokenizer),
         "tokenizer_sha256": tokenizer_checksum,
         "device": str(device),
-        "prompt": prompt,
-        "instruction": arguments.instruction,
-        "instruction_context": arguments.context,
+        "prompt": arguments.prompt,
         "prompt_token_ids": prompt_ids,
         "generated_token_ids": continuation_ids,
-        "generated_token_count": sequence.generated_token_count,
-        "finish_reason": sequence.finish_reason,
-        "termination_cause": sequence.termination_cause,
-        "terminating_token_id": sequence.terminating_token_id,
+        "generated_token_count": generated.generated_token_count,
+        "finish_reason": generated.finish_reason,
+        "termination_cause": generated.termination_cause,
+        "terminating_token_id": generated.terminating_token_id,
         "text": tokenizer.decode(continuation_ids, skip_special_tokens=True),
         "generation_config": asdict(generation_config),
     }
@@ -253,8 +154,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
 
 
 def main() -> None:
-    arguments = build_argument_parser().parse_args()
-    run(arguments)
+    run(build_argument_parser().parse_args())
 
 
 if __name__ == "__main__":

@@ -3,13 +3,10 @@
 import json
 from pathlib import Path
 import tempfile
-from types import SimpleNamespace
-
 import torch
 from torch import nn
 
 from scripts.generate import build_argument_parser, run
-from scripts.export_release import run as export_release
 from src.checkpointing import (
     CheckpointManager,
     SchedulerState,
@@ -288,103 +285,6 @@ def test_checkpoint_cli_generation() -> None:
         assert output_path.is_file()
         saved = json.loads(output_path.read_text(encoding="utf-8"))
         assert saved["generation_config"]["do_sample"] is False
-
-        release_directory = root / "release"
-        export_release(
-            SimpleNamespace(
-                checkpoint=checkpoint,
-                tokenizer=tokenizer_path,
-                output_dir=release_directory,
-            )
-        )
-        release_manifest = json.loads(
-            release_directory.joinpath("release_manifest.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        assert release_manifest["training_stage"] == "pretraining"
-        assert release_manifest["chat_template_version"] is None
-        release_output = run(
-            build_argument_parser().parse_args(
-                [
-                    "--release-dir",
-                    str(release_directory),
-                    "--prompt",
-                    "Codexa",
-                    "--device",
-                    "cpu",
-                    "--max-new-tokens",
-                    "3",
-                    "--greedy",
-                ]
-            )
-        )
-        assert release_output["checkpoint_run_id"] == "generation-run-id"
-        assert release_output["release_directory"] == str(release_directory)
-        assert release_output["checkpoint"] is None
-        assert release_output["training_stage"] == "pretraining"
-        assert_raises(
-            ValueError,
-            run,
-            build_argument_parser().parse_args(
-                [
-                    "--release-dir",
-                    str(release_directory),
-                    "--instruction",
-                    "Name a color.",
-                    "--context",
-                    "Use a short answer.",
-                    "--device",
-                    "cpu",
-                    "--max-new-tokens",
-                    "1",
-                    "--greedy",
-                ]
-            ),
-        )
-        sft_payload = dict(payload)
-        sft_payload["training_stage"] = "supervised_fine_tuning"
-        sft_payload["chat_template_version"] = "1.0"
-        sft_payload["base_checkpoint"] = {
-            "path": "/private/machine/checkpoints/base.pt",
-            "run_name": "generation",
-            "run_id": "generation-run-id",
-            "optimizer_step": 1,
-        }
-        sft_checkpoint = CheckpointManager(
-            root / "checkpoints",
-            "generation-sft",
-        ).save(sft_payload)
-        sft_release = root / "release-sft"
-        assert_raises(
-            ValueError,
-            export_release,
-            SimpleNamespace(
-                checkpoint=sft_checkpoint,
-                tokenizer=tokenizer_path,
-                output_dir=sft_release,
-            ),
-        )
-        released_tokenizer = release_directory / "tokenizer.json"
-        released_tokenizer.write_bytes(
-            released_tokenizer.read_bytes() + b"\n"
-        )
-        assert_raises(
-            ValueError,
-            run,
-            build_argument_parser().parse_args(
-                [
-                    "--release-dir",
-                    str(release_directory),
-                    "--prompt",
-                    "Codexa",
-                    "--device",
-                    "cpu",
-                    "--greedy",
-                ]
-            ),
-        )
-
 
 def main() -> None:
     test_generation_config_validation()
