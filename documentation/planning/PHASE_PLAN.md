@@ -1,676 +1,144 @@
-# Codexa v1 — From-Scratch 1B Model Phase Plan
-
-Project path:
-
-```text
-/home/k9-vortex/Development/2-Python/31-LLM (Codexa v1)
-```
-
-Use this checklist to track progress from environment setup through pretraining,
-chat instruction tuning, evaluation, and release. The completed
-**248,565,504-parameter model is preserved as the baseline**. The next production
-target is a new approximately **1B-parameter decoder-only model trained from
-scratch**, using licensed Hugging Face data for pretraining and cleaned
-conversation data for supervised fine-tuning.
-
-## Current Progress — 2026-07-31
-
-- The 250M baseline was pretrained and remains preserved separately.
-- A first HF-backed chat SFT run completed, but its quality was insufficient
-  for release because the dataset contained template placeholders and too few
-  genuine conversations.
-- OASST1 message trees were rebuilt into **680 validated multi-turn chains**.
-- The cleaned mixed SFT dataset is available at
-  `data/processed/codexa-chat-conv-v2/chat.jsonl` with 139,614 records,
-  including 663 multi-turn records after deduplication and placeholder removal.
-- The next model will not continue from the 250M weights. It will use a new
-  1B architecture and a new from-scratch pretraining run.
-- Current estimate: 1B pretraining on a 1B–2B-token HF subset will take about
-  1–3 days on the RTX 4080, followed by roughly 2–4 hours of conversation SFT.
-
----
-
-## Phase 0 — Project Setup
-
-- [x] Confirm project folder is correct
-- [x] Create Python virtual environment
-- [x] Activate `.venv`
-- [x] Upgrade `pip`
-- [x] Install PyTorch
-- [x] Install project dependencies
-- [x] Confirm PyTorch imports successfully
-- [x] Confirm CUDA is available
-- [x] Confirm RTX 4080 is detected
-- [x] Confirm approximately 16 GB VRAM is visible
-- [x] Create initial project folders
-- [x] Create `src/__init__.py`
-- [x] Create `tests/__init__.py`
-- [x] Create `.gitignore`
-- [x] Save dependencies to `requirements.txt`
-- [x] Initialize Git repository
-- [x] Create first Git commit
-
-### Phase 0 completion criteria
-
-- [x] `python` runs from `.venv`
-- [x] `torch.cuda.is_available()` returns `True`
-- [x] RTX 4080 appears as the active GPU
-- [x] Project structure exists and imports work
-
----
-
-## Phase 1 — Small Transformer Model
-
-- [x] Create `src/model.py`
-- [x] Add `ModelConfig`
-- [x] Add RMSNorm
-- [x] Add causal self-attention
-- [x] Add feed-forward network
-- [x] Add Transformer block
-- [x] Add token embeddings
-- [x] Add position embeddings
-- [x] Add final normalization
-- [x] Add output projection
-- [x] Add optional weight tying
-- [x] Add parameter-counting function
-- [x] Add input validation
-- [x] Add sequence-length validation
-- [x] Add model initialization
-- [x] Add causal language-model loss
-
-### Phase 1 completion criteria
-
-- [x] Model imports without errors
-- [x] Forward pass returns logits
-- [x] Loss is finite
-- [x] Output dimensions are correct
-- [x] Parameter count is printed correctly
-
----
-
-## Phase 2 — Model Tests
-
-- [x] Create `tests/test_model.py`
-- [x] Test model construction
-- [x] Test valid input shape
-- [x] Test logits shape
-- [x] Test finite loss
-- [x] Test context-length error
-- [x] Test invalid head configuration
-- [x] Test CPU forward pass
-- [x] Test GPU forward pass
-- [x] Test BF16 forward pass
-- [x] Test parameter count
-- [x] Run all tests successfully
-
-### Phase 2 completion criteria
-
-- [x] `python -m tests.test_model` passes
-- [x] Model runs on the RTX 4080
-- [x] No NaN or Inf values appear
-- [x] Initial loss is close to `ln(vocab_size)`
-
----
-
-## Phase 3 — Configuration System
-
-- [x] Create `configs/smoke.yaml`
-- [x] Create `configs/prototype.yaml`
-- [x] Create `configs/250m.yaml`
-- [x] Add YAML config loader
-- [x] Validate required config fields
-- [x] Validate model dimensions
-- [x] Validate training settings
-- [x] Print resolved configuration before training
-- [x] Save a copy of the config with each checkpoint
-
-### Phase 3 completion criteria
-
-- [x] Model can be created entirely from YAML
-- [x] Invalid configurations fail with clear errors
-- [x] Every run records its exact configuration
-
----
-
-## Phase 4 — Dataset Preparation
-
-- [x] Decide the first small text dataset
-- [x] Create `data/raw/`
-- [x] Add sample training text
-- [x] Add sample validation text
-- [x] Create data-cleaning script
-- [x] Normalize Unicode
-- [x] Remove broken or empty documents
-- [x] Remove duplicate documents
-- [x] Record dataset source and license
-- [x] Split data into train and validation sets
-- [x] Add dataset statistics
-- [x] Count characters
-- [x] Count documents
-- [x] Estimate token count
-- [x] Save cleaned data to `data/processed/`
-
-### Phase 4 completion criteria
-
-- [x] Training and validation files exist
-- [x] Data can be reproduced from scripts
-- [x] Sources and licenses are documented
-- [x] Dataset statistics are saved
-
----
-
-## Phase 5 — Tokenizer
-
-- [x] Choose BPE or Unigram tokenizer
-- [x] Create tokenizer training script
-- [x] Train tokenizer on representative data
-- [x] Add `<pad>`
-- [x] Add `<bos>`
-- [x] Add `<eos>`
-- [x] Add `<unk>`
-- [x] Set tokenizer vocabulary size
-- [x] Save tokenizer files
-- [x] Test encode
-- [x] Test decode
-- [x] Test Unicode text
-- [x] Test punctuation
-- [x] Test numbers
-- [x] Test code snippets
-- [x] Test special token IDs
-- [x] Measure average characters per token
-- [x] Measure unknown-token rate
-
-### Phase 5 completion criteria
-
-- [x] Encoding and decoding work correctly
-- [x] Special token IDs are stable
-- [x] Tokenizer handles normal text and code
-- [x] Tokenizer files can be reloaded
-
----
-
-## Phase 6 — Tokenized Dataset Pipeline
-
-- [x] Create tokenization script
-- [x] Convert cleaned text to token IDs
-- [x] Append EOS tokens between documents
-- [x] Pack tokens into fixed-length sequences
-- [x] Create training split
-- [x] Create validation split
-- [x] Save token arrays efficiently
-- [x] Add memory-mapped loading
-- [x] Create PyTorch dataset class
-- [x] Create DataLoader
-- [x] Add deterministic shuffling
-- [x] Test batch shapes
-- [x] Test labels are shifted correctly
-- [x] Confirm no data leakage between splits
-- [x] Measure data-loading throughput
-
-### Phase 6 completion criteria
-
-- [x] DataLoader returns valid input and label tensors
-- [x] Batches load faster than the GPU consumes them
-- [x] Training and validation splits remain separate
-- [x] Dataset can resume deterministically
-
----
-
-## Phase 7 — Training Loop
-
-- [x] Create `src/train.py`
-- [x] Move model to CUDA
-- [x] Add AdamW optimizer
-- [x] Add BF16 autocast
-- [x] Add gradient accumulation
-- [x] Add gradient clipping
-- [x] Add learning-rate warmup
-- [x] Add cosine learning-rate decay
-- [x] Add training-loss logging
-- [x] Add validation-loss logging
-- [x] Add tokens-per-second logging
-- [x] Add GPU-memory logging
-- [x] Add step-time logging
-- [x] Add NaN and Inf detection
-- [x] Add random seed control
-- [x] Add progress bar
-- [x] Add graceful keyboard interruption
-- [x] Add automatic cleanup after errors
-
-### Phase 7 completion criteria
-
-- [x] Loss decreases during training
-- [x] GPU utilization is consistently high
-- [x] Memory usage remains stable
-- [x] Training can run for several hundred steps
-
----
-
-## Phase 8 — Checkpointing and Resume
-
-- [x] Create checkpoint save function
-- [x] Save model state
-- [x] Save optimizer state
-- [x] Save scheduler state
-- [x] Save training step
-- [x] Save token count
-- [x] Save random-number states
-- [x] Save configuration
-- [x] Save tokenizer reference
-- [x] Create checkpoint load function
-- [x] Add `--resume` support
-- [x] Keep latest checkpoint
-- [x] Keep best validation checkpoint
-- [x] Keep previous known-good checkpoint
-- [x] Add periodic milestone checkpoints
-- [x] Test interrupted training
-- [x] Test resumed training
-- [x] Verify resumed loss is consistent
-
-### Phase 8 completion criteria
-
-- [x] Training resumes from the correct step
-- [x] Optimizer and scheduler resume correctly
-- [x] No checkpoint corruption occurs
-- [x] At least two backup checkpoints exist
-
----
-
-## Phase 9 — Text Generation
-
-- [x] Create `src/generate.py`
-- [x] Load model checkpoint
-- [x] Load tokenizer
-- [x] Add greedy decoding
-- [x] Add temperature sampling
-- [x] Add top-k sampling
-- [x] Add top-p sampling
-- [x] Add repetition penalty
-- [x] Add maximum generation length
-- [x] Add EOS stopping
-- [x] Add prompt input
-- [x] Add random seed option
-- [x] Save generated samples
-- [x] Test CPU generation
-- [x] Test GPU generation
-
-### Phase 9 completion criteria
-
-- [x] Checkpoint can generate text
-- [x] Generation stops correctly
-- [x] Sampling options work
-- [x] Outputs are saved for comparison
-
----
-
-## Phase 10 — Tiny Overfit Test
-
-- [x] Create a very small dataset
-- [x] Train a 10M–30M model
-- [x] Use short context length
-- [x] Attempt to overfit a tiny batch
-- [x] Confirm loss approaches a very low value
-- [x] Generate memorized text
-- [x] Save checkpoint
-- [x] Reload checkpoint
-- [x] Resume training
-- [x] Verify results are reproducible
-
-### Phase 10 completion criteria
-
-- [x] Tiny model deliberately overfits
-- [x] Loss and generation prove the pipeline works
-- [x] Save, load, and resume all function correctly
-
----
-
-## Phase 11 — Smoke Training Run
-
-- [x] Train on 1M–5M tokens
-- [x] Use the smoke configuration
-- [x] Monitor training loss
-- [x] Monitor validation loss
-- [x] Monitor VRAM usage
-- [x] Monitor GPU utilization
-- [x] Record tokens per second
-- [x] Record checkpoint size
-- [x] Generate samples during training
-- [x] Inspect samples for corruption
-- [x] Fix all pipeline bugs
-
-### Phase 11 completion criteria
-
-- [x] Full pipeline completes without failure
-- [x] Validation runs correctly
-- [x] Checkpoints are usable
-- [x] Generation is recognizable
-- [x] No unresolved critical bugs remain
-
----
-
-## Phase 12 — Design the 250M Architecture
-
-- [x] Choose final vocabulary size
-- [x] Choose hidden size
-- [x] Choose number of layers
-- [x] Choose number of attention heads
-- [x] Choose intermediate size
-- [x] Choose context length
-- [x] Decide position encoding
-- [x] Decide whether to tie embeddings
-- [x] Calculate exact parameter count
-- [x] Adjust architecture toward 250M
-- [x] Estimate optimizer memory
-- [x] Estimate activation memory
-- [x] Confirm model fits in 16 GB VRAM
-- [x] Document final architecture
-
-### Phase 12 completion criteria
-
-- [x] Exact parameter count is near 250M
-- [x] Architecture fits on the RTX 4080
-- [x] Configuration is saved in `configs/250m.yaml`
-
----
-
-## Phase 13 — 250M VRAM and Speed Benchmark
-
-- [x] Instantiate the 250M model
-- [x] Run one forward pass
-- [x] Run one backward pass
-- [x] Test BF16
-- [x] Test sequence length 512
-- [x] Test sequence length 1024
-- [x] Test sequence length 2048
-- [x] Test micro-batch size 1
-- [x] Test larger micro-batches
-- [x] Test gradient accumulation
-- [x] Test gradient checkpointing
-- [x] Test `torch.compile`
-- [x] Measure peak VRAM
-- [x] Measure tokens per second
-- [x] Measure step time
-- [x] Choose stable training settings
-
-### Phase 13 completion criteria
-
-- [x] Stable batch and sequence settings are known
-- [x] Realistic full-run duration is estimated
-- [x] No out-of-memory errors at chosen settings
-
----
-
-## Phase 14 — 250M Prototype Run
-
-- [x] Train on 50M–100M tokens
-- [x] Save regular checkpoints
-- [x] Run validation regularly
-- [x] Record training curves
-- [x] Generate fixed prompt samples
-- [x] Check for repetition
-- [x] Check for malformed output
-- [x] Check for data corruption
-- [x] Review tokenizer quality
-- [x] Review learning-rate behavior
-- [x] Review GPU throughput
-- [x] Estimate final training duration
-- [x] Decide whether architecture changes are needed
-
-### Phase 14 completion criteria
-
-- [x] 250M model trains stably
-- [x] Validation loss trends downward
-- [x] Samples improve over time
-- [x] Full-run configuration is approved
-
----
-
-## Phase 15 — Intermediate Training Run
-
-- [x] Prepare 500M–1B tokens
-- [x] Validate dataset quality
-- [x] Confirm storage requirements
-- [x] Confirm checkpoint backup plan
-- [x] Begin intermediate run
-- [x] Monitor thermals
-- [x] Monitor GPU stability
-- [x] Monitor loss curves
-- [x] Generate milestone samples
-- [x] Evaluate repetition
-- [x] Evaluate coherence
-- [x] Evaluate code completion
-- [x] Evaluate long-context behavior
-- [x] Compare checkpoints
-- [x] Select best checkpoint
-
-### Phase 15 completion criteria
-
-- [x] Model shows meaningful language ability
-- [x] Dataset and hyperparameters are validated
-- [x] Full training run is justified
-
----
-
-## Phase 16 — Full Pretraining Run
-
-- [x] Prepare 3B–5B training tokens
-- [x] Freeze final dataset version
-- [x] Freeze tokenizer version
-- [x] Freeze model configuration
-- [x] Freeze training configuration
-- [x] Verify disk space
-- [x] Record explicit operator acceptance of no independent backup
-- [x] Verify system cooling
-- [x] Verify power stability by explicit operator confirmation
-- [x] Run final preflight test
-- [x] Start full training
-- [x] Save frequent checkpoints
-- [x] Save milestone checkpoints
-- [x] Run validation periodically
-- [ ] Generate fixed prompt samples
-- [x] Record throughput
-- [ ] Record downtime
-- [ ] Resume safely after interruptions
-- [x] Complete target token count
-- [x] Save final checkpoint
-- [x] Save best validation checkpoint
-
-### Phase 16 completion criteria
-
-- [x] Target token count is reached
-- [x] Final model and tokenizer are preserved
-- [x] Training logs and configs are complete
-- [x] Multiple valid checkpoints exist
-
----
-
-## Phase 17 — Evaluation
-
-- [x] Create fixed evaluation prompt suite
-- [x] Measure validation perplexity from recorded validation checkpoints
-- [x] Evaluate text coherence
-- [x] Evaluate repetition
-- [x] Evaluate factual consistency
-- [x] Evaluate code completion
-- [x] Evaluate instruction sensitivity
-- [x] Evaluate context retention
-- [x] Evaluate malformed output
-- [x] Evaluate memorization risk with the fixed probe
-- [x] Evaluate fixed prompt categories
-- [x] Compare preserved base and chat checkpoints
-- [x] Document strengths
-- [x] Document weaknesses
-- [x] Select the strongest current chat checkpoint
-
-### Phase 17 completion criteria
-
-- [x] Evaluation report is complete
-- [x] Best current chat checkpoint is selected
-- [x] Known limitations are documented
-
----
-
-## Phase 18 — Chat Instruction Tuning
-
-- [x] Commit to producing a conversational Codexa checkpoint
-- [x] Keep the existing 248,565,504-parameter architecture unchanged
-- [x] Select the best 248,565,504-parameter base checkpoint
-- [x] Verify the SFT model has exactly 248,565,504 trainable parameters
-- [x] Prepare instruction dataset
-- [x] Validate dataset licenses
-- [x] Add high-quality single-turn conversations
-- [x] Add deterministic context-grounded multi-turn conversations
-- [ ] Add broader rewriting and reasoning examples
-- [ ] Add refusal and uncertainty examples without claiming unsupported knowledge
-- [x] Reject malformed conversations and remove exact duplicates
-- [x] Define the canonical `User:` / `Assistant:` chat template
-- [x] Extend the chat template to preserve ordered multi-turn history
-- [x] Ensure training and inference use the identical chat template
-- [x] Mask prompt tokens so loss is computed only on assistant responses
-- [x] Verify padding and truncated examples remain correctly loss-masked
-- [x] Add supervised fine-tuning script
-- [x] Run small SFT test
-- [x] Freeze the versioned chat dataset and record its checksum
-- [x] Validate a three-epoch SFT schedule against the one-epoch baseline
-- [x] Run a short overfit test on a tiny conversation sample
-- [x] Run a bounded SFT pilot and inspect fixed chat prompts
-- [x] Train the full chat SFT run from the selected base checkpoint
-- [x] Monitor training and validation loss for overfitting
-- [ ] Preserve broad general language ability after broader base pretraining
-- [x] Evaluate instruction following and response relevance
-- [x] Evaluate multi-turn context retention
-- [x] Evaluate conversation-role consistency
-- [x] Evaluate repetition, malformed answers, and premature EOS output
-- [ ] Evaluate hallucination, uncertainty, and refusal behavior
-- [x] Compare chat checkpoints with a fixed prompt suite
-- [x] Save base and instruction checkpoints separately
-- [x] Compare base and instruction models
-- [x] Document chat format
-- [x] Update the OpenAI-compatible server to use the canonical multi-turn template
-- [x] Verify non-streaming and streaming chat completions
-- [ ] Test the selected chat checkpoint through LM Studio
-- [x] Record the selected chat checkpoint, tokenizer, config, and checksums
-
-### Phase 18 completion criteria
-
-- [x] Final chat model remains exactly 248,565,504 trainable parameters
-- [ ] Chat model follows user instructions reliably
-- [x] Multi-turn conversations preserve role order and relevant context
-- [x] Assistant-only loss masking is verified by tests
-- [x] Responses are measurably better than the base checkpoint on the fixed chat suite
-- [x] Base model remains preserved
-- [x] Chat template and usage are documented
-- [ ] Codexa can be selected and tested successfully in LM Studio
-
----
-
-## Phase 20 — 1B Architecture and From-Scratch Pretraining
-
-- [ ] Design an approximately 1B-parameter architecture that fits the RTX 4080
-- [ ] Add and test the 1B YAML configuration
-- [ ] Benchmark BF16 memory use with a conservative micro-batch
-- [ ] Add gradient checkpointing or memory-saving optimizer support if required
-- [ ] Select a licensed Hugging Face pretraining mixture
-- [ ] Pin dataset revisions, licenses, and source checksums
-- [ ] Prepare a 1B–2B-token training subset for the first run
-- [ ] Validate tokenizer coverage and token counts
-- [ ] Run a short 1B smoke training job
-- [ ] Freeze the model, tokenizer, data, and training configuration
-- [ ] Run full from-scratch pretraining
-- [ ] Save best and latest checkpoints with checksums
-- [ ] Record throughput, VRAM, interruptions, and validation loss
-
-### Phase 20 completion criteria
-
-- [ ] Approximately 1B trainable parameters are verified
-- [ ] The target pretraining token count is reached
-- [ ] The final base checkpoint loads and generates text
-- [ ] The 250M baseline remains preserved separately
-
-## Phase 21 — 1B Conversation SFT and LM Studio Validation
-
-- [ ] Use `data/processed/codexa-chat-conv-v2/chat.jsonl` as the starting SFT set
-- [ ] Add more high-quality multi-turn data if the first evaluation is weak
-- [ ] Recheck placeholders, malformed roles, duplicates, and license metadata
-- [ ] Run a 1B SFT pilot before the full schedule
-- [ ] Train for 2–3 SFT epochs with validation
-- [ ] Evaluate greeting, identity, follow-up, correction, and context-retention prompts
-- [ ] Compare the 1B chat checkpoint with the 250M chat baseline
-- [ ] Load the selected 1B checkpoint through LM Studio
-- [ ] Record final checkpoint, tokenizer, configuration, and checksums
-
-### Phase 21 completion criteria
-
-- [ ] The 1B model holds a basic multi-turn conversation reliably
-- [ ] Placeholder and repetition failures are below the release threshold
-- [ ] LM Studio can connect and produce non-empty responses
-- [ ] Known limitations and evaluation results are documented
-
-## Phase 22 — Packaging and Release
-
-- [ ] Clean repository
-- [x] Update README
-- [x] Add installation instructions
-- [x] Add training instructions
-- [x] Add generation instructions
-- [x] Add architecture documentation
-- [x] Add dataset documentation
-- [x] Add tokenizer documentation
-- [x] Add model limitations
-- [x] Add license
-- [ ] Add model card
-- [ ] Export model weights
-- [ ] Export tokenizer
-- [ ] Add checksum files
-- [ ] Tag release in Git
-- [ ] Back up final artifacts
-
-### Phase 19 completion criteria
-
-- [ ] Another person can install and run the model
-- [ ] Release files are complete
-- [ ] Training process is reproducible
-- [ ] Final model is safely backed up
-
----
-
-# Current Progress
-
-Update this section as work continues.
-
-- [x] Phase 0 — Project Setup
-- [x] Phase 1 — Small Transformer Model
-- [x] Phase 2 — Model Tests
-- [x] Phase 3 — Configuration System
-- [x] Phase 4 — Dataset Preparation
-- [x] Phase 5 — Tokenizer
-- [x] Phase 6 — Tokenized Dataset Pipeline
-- [x] Phase 7 — Training Loop
-- [x] Phase 8 — Checkpointing and Resume
-- [x] Phase 9 — Text Generation
-- [x] Phase 10 — Tiny Overfit Test
-- [x] Phase 11 — Smoke Training Run
-- [x] Phase 12 — Design the 250M Architecture
-- [x] Phase 13 — 250M VRAM and Speed Benchmark
-- [x] Phase 14 — 250M Prototype Run
-- [x] Phase 15 — Intermediate Training Run
-- [x] Phase 16 — Full Pretraining Run
-- [x] Phase 17 — Evaluation
-- [ ] Phase 18 — Chat Instruction Tuning
-- [ ] Phase 20 — 1B Architecture and From-Scratch Pretraining
-- [ ] Phase 21 — 1B Conversation SFT and LM Studio Validation
-- [ ] Phase 22 — Packaging and Release
-
----
-
-# Notes
-
-Use this area for decisions, problems, benchmark results, and changes.
-
-```text
-Date:
-Phase:
-Decision or issue:
-Result:
-Next action:
-```
+# Codexa v1 — Base Model Rebuild Plan
+
+Codexa will restart as a decoder-only base language model trained from random
+weights on existing, licensed text datasets. We are not writing or generating a
+new pretraining dataset. We are also not doing chat fine-tuning until the base
+checkpoint can produce coherent English continuations.
+
+The target is the approximately 1-billion-parameter architecture in
+`configs/1b.yaml`, trained locally on one RTX 4080. The cheap validation stages
+use this same 1B architecture with very short runs; there is no smaller-model
+training stage or prerequisite.
+
+## Non-goals
+
+- No Google Colab, Google Drive, hosted-notebook, or remote-session workflow.
+- No hand-authored, templated, or synthetic corpus presented as base data.
+- No chat template, assistant persona, SFT, preference training, tools, RAG, or
+  OpenAI-compatible serving during base pretraining.
+- No claim that a base model is a chat assistant. Its first job is coherent text
+  completion; chat behavior comes later.
+- No reuse of old model weights. The approved run starts from a new random seed.
+
+## Existing data we will use
+
+Use the already implemented, pinned FineWeb-Edu pipeline as the main corpus:
+
+- Source: `HuggingFaceFW/fineweb-edu`, `sample-10BT`.
+- Prepared candidate: four pinned shards, about 3.514 billion stored tokens.
+- Training and validation remain separate and reproducible.
+- Dataset files, token binaries, logs, and checkpoints remain ignored by Git.
+
+Small tracked fixtures may be used for cheap pipeline and overfit tests. They
+are not production data. Any future conversational dataset selection happens
+after the base checkpoint passes its language-quality gate.
+
+## Stage 1 — Freeze the base specification
+
+- [ ] Confirm `configs/1b.yaml` is the rebuild architecture and record its exact
+  parameter count.
+- [ ] Confirm the run creates a newly initialized model and cannot silently
+  resume an old checkpoint.
+- [ ] Record the exact FineWeb-Edu manifest, tokenizer checksum, token count,
+  code commit, config, seed, and environment.
+- [ ] Keep the vocabulary at 8,192 and context at 2,048 for the first rebuild;
+  change neither while diagnosing language quality.
+- [ ] Create a new run name and empty output directory dedicated to the rebuild.
+
+### Exit gate
+
+One written run manifest identifies every input. The command fails rather than
+loading an old checkpoint or mismatched tokenizer.
+
+## Stage 2 — Prove the training path cheaply
+
+- [ ] Run the existing tests with `python -m pytest`.
+- [ ] Run the tiny-overfit test and verify the model memorizes its small fixture.
+- [ ] Run a short FineWeb-Edu smoke job from random weights.
+- [ ] Verify causal labels, document boundaries, validation separation,
+  checkpoint save/resume, and deterministic seed behavior.
+- [ ] Generate fixed samples before training and after the smoke job.
+
+### Exit gate
+
+Loss is finite and falls, the tiny fixture can be overfit, checkpoints resume
+correctly, and fixed-prompt output changes in the expected direction. Any
+failure is fixed here before a long run starts.
+
+## Stage 3 — Train the 1B base model
+
+- [ ] Train only on the prepared FineWeb-Edu token stream.
+- [ ] Start from random weights; do not initialize from any older checkpoint.
+- [ ] Use BF16, gradient accumulation, clipping, warmup, and cosine decay from
+  the existing local training loop.
+- [ ] Save `latest` for recovery and retain milestone checkpoints for comparison.
+- [ ] Log training loss, validation loss, learning rate, gradient norm, tokens
+  processed, throughput, GPU memory, and wall time.
+- [ ] Evaluate and generate the same fixed prompt suite at every milestone.
+- [ ] Stop early for NaN/Inf, persistent validation regression, broken samples,
+  tokenizer mismatch, or corrupted checkpoints.
+
+This stage is measured in processed tokens, not merely optimizer steps. The
+first complete attempt should consume the prepared corpus once. Additional
+tokens or epochs require evidence from validation and sample quality.
+
+## Stage 4 — Base language quality gate
+
+The model must pass deterministic checks before any chat work begins:
+
+- [ ] Complete ordinary English prose with readable grammar and topic continuity.
+- [ ] Continue a short story without immediately collapsing into repetition.
+- [ ] Continue factual/educational prose in the style of the prompt without
+  pretending that factual accuracy has been established.
+- [ ] Preserve basic formatting for lists, headings, quotations, and paragraphs.
+- [ ] Avoid premature EOS, endless loops, copied prompt fragments, and token
+  garbage across the fixed evaluation set.
+- [ ] Beat the untrained checkpoint and earlier milestones on held-out loss.
+- [ ] Pass repetition, distinct-token, and completion-length diagnostics.
+- [ ] Record failures as failures; sampling changes cannot be used to hide a bad
+  checkpoint.
+
+Use greedy decoding as a reproducible health check plus one fixed sampling
+configuration for readability. A checkpoint passes only when the behavior is
+repeatable across a fixed, versioned prompt set.
+
+### Exit gate
+
+The selected checkpoint is a usable text-completion base model: it can produce
+several coherent paragraphs on multiple unseen prompts without systemic
+repetition or collapse. If it fails, investigate data, tokenization, labels,
+optimization, and training duration before adding chat data.
+
+## Stage 5 — Select and preserve the 1B base
+
+- [ ] Compare 1B milestone checkpoints using held-out loss and the fixed prompt
+  suite rather than automatically choosing the final step.
+- [ ] Preserve the selected base checkpoint, tokenizer, manifest, metrics, and
+  generated evaluation samples together.
+- [ ] Document the training-token count, runtime, hardware, limitations, data
+  provenance, and exact quality-gate results.
+- [ ] Keep the base checkpoint immutable before beginning any chat training.
+
+## Stage 6 — Chat comes after the base
+
+This stage is deliberately blocked until Stage 4 passes.
+
+- [ ] Preserve the passing base checkpoint unchanged.
+- [ ] Audit existing human conversation/instruction datasets and licenses.
+- [ ] Build a separate, versioned SFT mixture from accepted existing datasets.
+- [ ] Train assistant-only labels with the repository chat protocol.
+- [ ] Evaluate multi-turn retention, instruction following, factuality,
+  repetition, stop behavior, and base-capability regression.
+- [ ] Expose a checkpoint through the chat server only after those gates pass.
+
+## Immediate next actions
+
+1. Inspect and freeze the current FineWeb-Edu artifacts and tokenizer.
+2. Add a base-only fixed evaluation prompt set and machine-readable report.
+3. Add a fresh-run preflight that rejects accidental checkpoint reuse.
+4. Run tests, a tiny-step 1B validation job, and a short FineWeb-Edu smoke job.
+5. Review the evidence, then launch the 1B base pretraining run locally.
+
+The rebuild is successful when Codexa first works as a coherent base text model.
+Chat behavior and serving are later projects, not shortcuts around that
+requirement.

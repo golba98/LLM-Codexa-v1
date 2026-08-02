@@ -58,11 +58,6 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--top-p", type=float)
     parser.add_argument("--repetition-penalty", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument(
-        "--instruction-template",
-        action="store_true",
-        help="Format each simple prompt with the documented SFT template.",
-    )
     parser.add_argument("--overwrite", action="store_true")
     return parser
 
@@ -153,37 +148,16 @@ def _build_prompt(
     *,
     tokenizer,
     context_length: int,
-    instruction_template: bool = False,
     bos_token_id: int | None = None,
 ) -> tuple[str, list[int]]:
     prompt = entry.get("prompt")
     if isinstance(prompt, str):
-        if instruction_template:
-            from src.chat_protocol import (
-                ChatMessage,
-                encode_chat_messages,
-                format_chat_messages,
-            )
-
-            messages = (ChatMessage("user", prompt),)
-            prompt = format_chat_messages(messages, add_generation_prompt=True)
-            token_ids, _ = encode_chat_messages(
-                messages,
-                tokenizer=tokenizer,
-                add_generation_prompt=True,
-            )
-        else:
-            token_ids = tokenizer.encode(
-                prompt,
-                add_special_tokens=False,
-            ).ids
+        token_ids = tokenizer.encode(
+            prompt,
+            add_special_tokens=False,
+        ).ids
         return prompt, token_ids
 
-    if instruction_template:
-        raise ValueError(
-            "Long-context synthetic prompts cannot use instruction-template "
-            "mode."
-        )
     target_tokens = int(entry["target_prompt_tokens"])
     if target_tokens >= context_length:
         raise ValueError(
@@ -314,21 +288,6 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
     bos_token_id = tokenizer.token_to_id(BOS_TOKEN)
     if eos_token_id != 2 or bos_token_id != 1:
         raise ValueError("Tokenizer must use <bos>=1 and <eos>=2.")
-    if arguments.instruction_template:
-        from src.chat_protocol import (
-            CHAT_TEMPLATE_VERSION,
-            validate_chat_tokenizer,
-        )
-
-        if (
-            checkpoint.training_stage != "supervised_fine_tuning"
-            or checkpoint.chat_template_version != CHAT_TEMPLATE_VERSION
-        ):
-            raise ValueError(
-                "Instruction-template evaluation requires a compatible chat SFT checkpoint."
-            )
-        validate_chat_tokenizer(tokenizer)
-
     validation_loss: float | None = None
     validation_tokens = 0
     if (arguments.validation_token_file is None) != (
@@ -422,35 +381,14 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
             prompt_entry,
             tokenizer=tokenizer,
             context_length=model_config.context_length,
-            instruction_template=arguments.instruction_template,
             bos_token_id=bos_token_id,
         )
         prompt_ids = prompt_ids or [bos_token_id]
-        stop_sequences = ()
-        if arguments.instruction_template:
-            from src.chat_protocol import (
-                ASSISTANT_TOKEN,
-                END_TOKEN,
-                SPECIAL_TOKEN_IDS,
-                SYSTEM_TOKEN,
-                USER_TOKEN,
-            )
-
-            stop_sequences = tuple(
-                (SPECIAL_TOKEN_IDS[token],)
-                for token in (
-                    END_TOKEN,
-                    SYSTEM_TOKEN,
-                    USER_TOKEN,
-                    ASSISTANT_TOKEN,
-                )
-            )
         sequence = generate_sequences(
             model,
             torch.tensor([prompt_ids], dtype=torch.long, device=device),
             eos_token_id=eos_token_id,
             pad_token_id=tokenizer.token_to_id("<pad>"),
-            stop_sequences=stop_sequences,
             config=generation_config,
         ).sequences[0]
         continuation_ids = list(sequence.visible_token_ids)

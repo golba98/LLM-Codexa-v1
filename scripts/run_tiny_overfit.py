@@ -164,7 +164,7 @@ def run(arguments: argparse.Namespace) -> dict[str, object]:
         {
             "run_name": arguments.run_name,
             "run_id": run_id,
-            "purpose": "Phase 10 deliberate tiny-sequence overfit",
+            "purpose": "Deliberate tiny-sequence overfit validation",
             "config": {"model": asdict(config.model), "training": asdict(config.training)},
             "text_path": str(arguments.text),
             "tokenizer_path": str(arguments.tokenizer),
