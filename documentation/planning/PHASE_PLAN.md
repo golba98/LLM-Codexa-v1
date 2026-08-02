@@ -22,16 +22,20 @@ training stage or prerequisite.
 
 ## Existing data we will use
 
-Use the already implemented, pinned FineWeb-Edu pipeline as the main corpus:
+The downloaded sources have distinct jobs:
 
-- Source: `HuggingFaceFW/fineweb-edu`, `sample-10BT`.
-- Prepared candidate: four pinned shards, about 3.514 billion stored tokens.
-- Training and validation remain separate and reproducible.
-- Dataset files, token binaries, logs, and checkpoints remain ignored by Git.
+- General and educational language: ten pinned shards from
+  `HuggingFaceFW/fineweb-edu`, `sample-10BT`.
+- Encyclopedic and factual prose: the complete pinned English
+  `wikimedia/wikipedia` `20231101.en` snapshot.
+- Later conversational SFT: pinned `HuggingFaceH4/ultrachat_200k` `train_sft`
+  and `test_sft`, plus pinned `OpenAssistant/oasst1` train and validation.
 
-Small tracked fixtures may be used for cheap pipeline and overfit tests. They
-are not production data. Any future conversational dataset selection happens
-after the base checkpoint passes its language-quality gate.
+FineWeb-Edu and Wikipedia form the base-pretraining candidate. UltraChat and
+OASST1 remain role-structured and separate until the base quality gate passes;
+mixing flattened dialogue into base text would discard the supervision needed
+to teach turn taking. Training and validation remain reproducible, and all
+generated artifacts remain ignored by Git.
 
 ## Stage 1 — Freeze the base specification
 
@@ -39,8 +43,8 @@ after the base checkpoint passes its language-quality gate.
   parameter count.
 - [ ] Confirm the run creates a newly initialized model and cannot silently
   resume an old checkpoint.
-- [ ] Record the exact FineWeb-Edu manifest, tokenizer checksum, token count,
-  code commit, config, seed, and environment.
+- [ ] Record the exact FineWeb-Edu and Wikipedia manifests, mixture weights,
+  tokenizer checksum, token count, code commit, config, seed, and environment.
 - [ ] Keep the vocabulary at 8,192 and context at 2,048 for the first rebuild;
   change neither while diagnosing language quality.
 - [ ] Create a new run name and empty output directory dedicated to the rebuild.
@@ -67,7 +71,7 @@ failure is fixed here before a long run starts.
 
 ## Stage 3 — Train the 1B base model
 
-- [ ] Train only on the prepared FineWeb-Edu token stream.
+- [ ] Train only on the prepared FineWeb-Edu and Wikipedia base mixture.
 - [ ] Start from random weights; do not initialize from any older checkpoint.
 - [ ] Use BF16, gradient accumulation, clipping, warmup, and cosine decay from
   the existing local training loop.
@@ -121,11 +125,14 @@ optimization, and training duration before adding chat data.
 
 ## Stage 6 — Chat comes after the base
 
-This stage is deliberately blocked until Stage 4 passes.
+This stage is deliberately blocked until Stage 4 passes. The source data is
+downloaded now so its provenance and format can be audited before training.
 
 - [ ] Preserve the passing base checkpoint unchanged.
-- [ ] Audit existing human conversation/instruction datasets and licenses.
-- [ ] Build a separate, versioned SFT mixture from accepted existing datasets.
+- [ ] Audit UltraChat's synthetic-generation caveat and OASST1's human
+  conversation-tree structure, quality, and licenses.
+- [ ] Build a separate, versioned SFT mixture from accepted examples without
+  losing message roles or assistant-only label boundaries.
 - [ ] Train assistant-only labels with the repository chat protocol.
 - [ ] Evaluate multi-turn retention, instruction following, factuality,
   repetition, stop behavior, and base-capability regression.
@@ -133,10 +140,12 @@ This stage is deliberately blocked until Stage 4 passes.
 
 ## Immediate next actions
 
-1. Inspect and freeze the current FineWeb-Edu artifacts and tokenizer.
-2. Add a base-only fixed evaluation prompt set and machine-readable report.
-3. Add a fresh-run preflight that rejects accidental checkpoint reuse.
-4. Run tests, a tiny-step 1B validation job, and a short FineWeb-Edu smoke job.
+1. Verify the four downloaded source manifests and inspect their schemas.
+2. Implement deterministic FineWeb-Edu plus Wikipedia preparation and mixture
+   accounting; keep dialogue data outside this base path.
+3. Re-train/freeze the tokenizer on the approved base mixture and rebuild token
+   artifacts.
+4. Run tests, a tiny-step 1B validation job, and a short base-mixture smoke job.
 5. Review the evidence, then launch the 1B base pretraining run locally.
 
 The rebuild is successful when Codexa first works as a coherent base text model.

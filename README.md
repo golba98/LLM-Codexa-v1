@@ -5,9 +5,11 @@ with typed Python and PyTorch. The active target is the 921,773,568-parameter
 configuration in `configs/1b.yaml`, with an 8,192-token vocabulary and a
 2,048-token context window on one RTX 4080.
 
-This repository currently covers base pretraining only: FineWeb-Edu download
-and preparation, BPE tokenization, memory-mapped causal-LM data, mixed-precision
-training, atomic checkpoints, text completion, and fixed-prompt evaluation.
+This repository currently covers base pretraining: licensed general and
+encyclopedic corpus download, FineWeb-Edu preparation, BPE tokenization,
+memory-mapped causal-LM data, mixed-precision training, atomic checkpoints,
+text completion, and fixed-prompt evaluation. Existing conversational corpora
+are downloaded separately and retain their role structure for later SFT.
 
 ## Environment
 
@@ -21,17 +23,20 @@ python -m pytest
 Use every script's `--help` before running it. Generated datasets, token data,
 logs, and checkpoints are intentionally ignored by Git.
 
-## Base data
+## Training data
 
-The production corpus is the pinned `HuggingFaceFW/fineweb-edu` `sample-10BT`
-configuration. The currently retained local artifact contains one prepared
-shard and 883,814,184 training tokens. That shard is valid pipeline input, but
-it is not the final training budget for a 1B-class model.
+The base corpus combines pinned FineWeb-Edu general/educational text with a
+pinned English Wikipedia snapshot. Ten FineWeb-Edu `sample-10BT` shards and
+the complete `20231101.en` Wikipedia snapshot are the first downloaded source
+set. The currently prepared/tokenized artifact still contains only one
+FineWeb-Edu shard and 883,814,184 training tokens; regenerate it after the
+multi-source preparation path is complete.
 
 Download additional pinned shards:
 
 ```bash
 .venv/bin/python -m scripts.download_fineweb_edu --help
+.venv/bin/python -m scripts.download_language_corpora --help
 ```
 
 Prepare them deterministically:
@@ -40,8 +45,10 @@ Prepare them deterministically:
 .venv/bin/python -m scripts.prepare_fineweb_edu --help
 ```
 
-See `documentation/reference/DATASET.md` for the retained artifact's exact
-revision, counts, and checksums.
+UltraChat 200k and OASST1 are downloaded as later conversational training
+sources. They must not be flattened into the base token stream or treated as
+Wikipedia/general knowledge. See `documentation/reference/DATASET.md` for
+revisions, roles, licenses, and the retained artifact's checksums.
 
 ## Tokenizer and token data
 

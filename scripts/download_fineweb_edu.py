@@ -6,7 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import snapshot_download
 
 
 REPOSITORY_ID = "HuggingFaceFW/fineweb-edu"
@@ -35,23 +35,30 @@ def main() -> None:
         default=5,
         help="Leading sample-10BT shards to download (1-14).",
     )
+    parser.add_argument("--max-workers", type=int, default=8)
     arguments = parser.parse_args()
     if not 1 <= arguments.shard_count <= SHARD_COUNT:
         raise ValueError(f"--shard-count must be between 1 and {SHARD_COUNT}.")
+    if arguments.max_workers <= 0:
+        raise ValueError("--max-workers must be positive.")
     arguments.output_dir.mkdir(parents=True, exist_ok=True)
 
+    filenames = [
+        f"sample/10BT/{shard_index:03d}_00000.parquet"
+        for shard_index in range(arguments.shard_count)
+    ]
+    snapshot_download(
+        repo_id=REPOSITORY_ID,
+        repo_type="dataset",
+        revision=REVISION,
+        allow_patterns=filenames,
+        local_dir=arguments.output_dir,
+        max_workers=arguments.max_workers,
+    )
+
     files: dict[str, object] = {}
-    for shard_index in range(arguments.shard_count):
-        filename = f"sample/10BT/{shard_index:03d}_00000.parquet"
-        downloaded = Path(
-            hf_hub_download(
-                repo_id=REPOSITORY_ID,
-                repo_type="dataset",
-                filename=filename,
-                revision=REVISION,
-                local_dir=arguments.output_dir,
-            )
-        )
+    for filename in filenames:
+        downloaded = arguments.output_dir / filename
         files[filename] = {
             "path": str(downloaded),
             "bytes": downloaded.stat().st_size,
