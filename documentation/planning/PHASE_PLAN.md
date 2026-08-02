@@ -151,3 +151,6 @@ downloaded now so its provenance and format can be audited before training.
 The rebuild is successful when Codexa first works as a coherent base text model.
 Chat behavior and serving are later projects, not shortcuts around that
 requirement.
+
+The dataset contents, capability expectations, and complete base-to-chat flow
+are explained in `TRAINING_DATA_PLAN.md`.

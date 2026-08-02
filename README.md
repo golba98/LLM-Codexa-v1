@@ -114,4 +114,6 @@ coherent continuations without systemic repetition or collapse. Assistant and
 multi-turn training are separate future work after that gate passes.
 
 The active execution checklist is
-`documentation/planning/PHASE_PLAN.md`.
+`documentation/planning/PHASE_PLAN.md`. For a plain-language explanation of
+what each dataset teaches and why base training and chat fine-tuning are
+separate, read `documentation/planning/TRAINING_DATA_PLAN.md`.
